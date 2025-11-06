@@ -1,0 +1,40 @@
+<div class="logo">
+    <a href="#" class="simple-text logo-mini">
+        <div class="logo-img">
+            <div class="logo-text">PH</div>
+        </div>
+    </a>
+    <a href="#" class="simple-text logo-normal">
+        Euphoria
+    </a>
+</div>
+<div class="sidebar-wrapper">
+    <ul class="nav">
+        <!-- Secciones -->
+        <ng-container *ngFor="let section of sections; let i = index">
+            <li class="nav-item section-title" (click)="toggleSection(i)">
+                <p>
+                  <span class="section-left">
+                    <i class="now-ui-icons {{section.icon || 'shopping_box'}}"></i>
+                    {{ section.title }}
+                  </span>
+                  <span class="caret">{{ section.expanded ? '▾' : '▸' }}</span>
+                </p>
+            </li>
+            <ul class="submenu" *ngIf="section.expanded">
+                <li routerLinkActive="active" *ngFor="let item of section.children" class="{{item.class}} nav-item">
+                    <!-- Item normal -->
+                    <a *ngIf="!item.logout" [routerLink]="[item.path]">
+                        <i class="now-ui-icons {{item.icon}}" *ngIf="item.icon"></i>
+                        <p>{{item.title}}</p>
+                    </a>
+                    <!-- Item logout -->
+                    <a *ngIf="item.logout" (click)="onMenuItemClick(item)">
+                        <i class="now-ui-icons {{item.icon}}" *ngIf="item.icon"></i>
+                        <p>{{item.title}}</p>
+                    </a>
+                </li>
+            </ul>
+        </ng-container>
+    </ul>
+</div>

@@ -1,0 +1,251 @@
+<div class="producto-list">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Gestión de Productos</h2>
+      <button class="btn btn-success" (click)="openCreateModal()">
+        Nuevo Producto
+      </button>
+    </div>
+    
+    <div class="card-body">
+      <!-- Filtros -->
+      <div class="filters mb-3">
+        <div class="row">
+          <div class="col-md-3">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Buscar por nombre..."
+              [(ngModel)]="filters.nombre"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-2">
+            <input 
+              type="number" 
+              class="form-control" 
+              placeholder="Precio mínimo"
+              [(ngModel)]="filters.precio_min"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-2">
+            <input 
+              type="number" 
+              class="form-control" 
+              placeholder="Precio máximo"
+              [(ngModel)]="filters.precio_max"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-2">
+            <select 
+              class="form-control" 
+              [(ngModel)]="filters.activo"
+              (change)="onFilterChange()"
+            >
+              <option value="">Todos los estados</option>
+              <option value="true">Activos</option>
+              <option value="false">Inactivos</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-secondary" (click)="clearFilters()">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de productos -->
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Precio</th>
+              <th>Categoría</th>
+              <th>Stock</th>
+              <th>Estado</th>
+              <th>Fecha Creación</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="9" class="text-center">Cargando...</td>
+            </tr>
+            <tr *ngIf="!loading && productos.length === 0">
+              <td colspan="9" class="text-center">No hay productos disponibles</td>
+            </tr>
+            <tr *ngFor="let producto of productos">
+              <td>{{ producto.id }}</td>
+              <td>{{ producto.nombre }}</td>
+              <td>{{ producto.descripcion || '-' }}</td>
+              <td>{{ formatearPrecio(producto.precio) }}</td>
+              <td>{{ producto.categoria?.nombre || '-' }}</td>
+              <td>
+                <span class="badge" [class.badge-success]="producto.stock > 20" [class.badge-warning]="producto.stock > 10 && producto.stock <= 20" [class.badge-danger]="producto.stock <= 10">
+                  {{ producto.stock }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [class.badge-success]="producto.activo" [class.badge-danger]="!producto.activo">
+                  {{ producto.activo ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td>{{ producto.fecha_creacion | date:'short' }}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" (click)="editProducto(producto)">
+                  Editar
+                </button>
+                <button class="btn btn-sm btn-danger" (click)="deleteProducto(producto)">
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      <div class="pagination mt-3" *ngIf="totalPages > 1">
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === 1"
+          (click)="goToPage(currentPage - 1)"
+        >
+          Anterior
+        </button>
+        <span class="mx-3">
+          Página {{ currentPage }} de {{ totalPages }}
+        </span>
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === totalPages"
+          (click)="goToPage(currentPage + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para crear/editar producto -->
+  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ editingProducto ? 'Editar Producto' : 'Nuevo Producto' }}</h5>
+          <button type="button" class="close" (click)="closeModal()">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="saveProducto()">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="nombre">Nombre *</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    id="nombre" 
+                    [(ngModel)]="productoForm.nombre" 
+                    name="nombre"
+                    required
+                    placeholder="Ingrese el nombre del producto"
+                  >
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="precio">Precio *</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="precio" 
+                    [(ngModel)]="productoForm.precio" 
+                    name="precio"
+                    required
+                    min="0"
+                    step="0.01"
+                    placeholder="Ingrese el precio"
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="descripcion">Descripción</label>
+              <textarea 
+                class="form-control" 
+                id="descripcion" 
+                [(ngModel)]="productoForm.descripcion" 
+                name="descripcion"
+                rows="3"
+                placeholder="Ingrese una descripción del producto (opcional)"
+              ></textarea>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="stock">Stock *</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    id="stock" 
+                    [(ngModel)]="productoForm.stock" 
+                    name="stock"
+                    required
+                    min="0"
+                    placeholder="Ingrese la cantidad en stock"
+                  >
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="categoria_id">Categoría *</label>
+                  <select 
+                    class="form-control" 
+                    id="categoria_id" 
+                    [(ngModel)]="productoForm.categoria_id" 
+                    name="categoria_id"
+                    required
+                  >
+                    <option value="">Seleccione una categoría</option>
+                    <option value="1">Tecnología</option>
+                    <option value="2">Accesorios</option>
+                    <option value="3">Audio</option>
+                    <option value="4">Monitores</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input 
+                  type="checkbox" 
+                  class="form-check-input" 
+                  id="activo" 
+                  [(ngModel)]="productoForm.activo" 
+                  name="activo"
+                >
+                <label class="form-check-label" for="activo">
+                  Producto activo
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="saveProducto()">
+            {{ editingProducto ? 'Actualizar' : 'Crear' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
