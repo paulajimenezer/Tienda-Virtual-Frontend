@@ -54,13 +54,16 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>Email</th>
+              <th>Tipo Documento</th>
+              <th>Número Documento</th>
               <th>Nombre</th>
-              <th>Usuario</th>
-              <th>Teléfono</th>
+              <th>Apellido</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Genero</th>
               <th>Estado</th>
-              <th>Admin</th>
               <th>Fecha Creación</th>
+              <th>Fecha Edición</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -138,7 +141,33 @@
           </button>
         </div>
         <div class="modal-body">
+        <!--Formulario para crear un nuevo usuario-->
           <form [formGroup]="usuarioForm" (ngSubmit)="saveUsuario()">
+            <div class="form-group mb-3">
+              <label for="nombre">Tipo De Documento *</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="tipo_documento" 
+                formControlName="Tipo De Documento"
+                placeholder="Ingrese el tipo de documento"
+              >
+            </div>
+
+            <div class="form-group mb-3">
+              <label for="nombre">Número De Documento *</label>
+              <input 
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                class="form-control" 
+                id="numero_documento" 
+                formControlName="Número De Documento"
+                placeholder="Ingrese el número de documento"
+              >
+            </div>
+            
+            
             <div class="form-group mb-3">
               <label for="nombre">Nombre *</label>
               <input 
@@ -146,24 +175,24 @@
                 class="form-control" 
                 id="nombre" 
                 formControlName="nombre"
-                placeholder="Ingrese el nombre completo"
+                placeholder="Ingrese el nombre"
               >
               <div *ngIf="usuarioForm.get('nombre')?.invalid && usuarioForm.get('nombre')?.touched" class="text-danger">
-                El nombre es requerido y debe tener al menos 2 caracteres
+                El nombre de es requerido y debe tener al menos 2 caracteres
               </div>
             </div>
-            
+
             <div class="form-group mb-3">
-              <label for="nombre_usuario">Nombre de Usuario *</label>
+              <label for="apellido">Apellido *</label>
               <input 
                 type="text" 
                 class="form-control" 
-                id="nombre_usuario" 
-                formControlName="nombre_usuario"
-                placeholder="Ingrese el nombre de usuario"
+                id="apellido" 
+                formControlName="apellido"
+                placeholder="Ingrese el apellido del usuario"
               >
-              <div *ngIf="usuarioForm.get('nombre_usuario')?.invalid && usuarioForm.get('nombre_usuario')?.touched" class="text-danger">
-                El nombre de usuario es requerido y debe tener al menos 3 caracteres
+              <div *ngIf="usuarioForm.get('apellido')?.invalid && usuarioForm.get('apellido')?.touched" class="text-danger">
+                El apellido del usuario es requerido y debe tener al menos 3 caracteres
               </div>
             </div>
             
@@ -182,13 +211,24 @@
             </div>
             
             <div class="form-group mb-3">
-              <label for="telefono">Teléfono</label>
+              <label for="telefono">Género</label>
               <input 
-                type="tel" 
+                type="text" 
                 class="form-control" 
-                id="telefono" 
+                id="genero" 
                 formControlName="telefono"
-                placeholder="Ingrese el teléfono (opcional)"
+                placeholder="Ingrese el genero"
+              >
+            </div>
+
+            <div class="form-group mb-3">
+              <label for="nombre">Usuario Que Crea *</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="usuario_crea" 
+                formControlName="Usuario que crea"
+                placeholder="Ingrese el usuario que crea"
               >
             </div>
             

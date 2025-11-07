@@ -69,7 +69,7 @@ const MENU_SECTIONS: MenuSection[] = [
     ],
     expanded: false,
     icon: 'shopping_box' 
-  }
+  },
 ];
 
 @Component({

@@ -28,6 +28,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'pedidos',
+    loadComponent: () => import('./features/pedido/pedido-list/pedido-list.component').then(m => m.PedidoListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.routes').then(m => m.authRoutes)
   },

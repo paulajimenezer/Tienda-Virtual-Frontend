@@ -70,6 +70,7 @@
               <th>Stock</th>
               <th>Estado</th>
               <th>Fecha Creación</th>
+              <th>Fecha Edición</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -145,7 +146,7 @@
         </div>
         <div class="modal-body">
           <form (ngSubmit)="saveProducto()">
-            <div class="row">
+            <div class="row form-columns">
               <div class="col-md-6">
                 <div class="form-group">
                   <label for="nombre">Nombre *</label>
@@ -188,7 +189,7 @@
                 placeholder="Ingrese una descripción del producto (opcional)"
               ></textarea>
             </div>
-            <div class="row">
+            <div class="row form-columns">
               <div class="col-md-6">
                 <div class="form-group">
                   <label for="stock">Stock *</label>
@@ -223,6 +224,17 @@
                 </div>
               </div>
             </div>
+            <hr class="my-3" />
+            <div class="form-group">
+              <label for="usuario_crea">Usuario que crea</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="usuario_crea" 
+                name="usuario_crea"
+                placeholder="Digite el usuario que crea este producto"
+              >
+            </div>
             <div class="form-group">
               <div class="form-check">
                 <input 
@@ -240,8 +252,8 @@
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-          <button type="button" class="btn btn-primary" (click)="saveProducto()">
+          <button type="button" class="btn btn-secondary btn-modal-sep" (click)="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-modal-sep" (click)="saveProducto()">
             {{ editingProducto ? 'Actualizar' : 'Crear' }}
           </button>
         </div>

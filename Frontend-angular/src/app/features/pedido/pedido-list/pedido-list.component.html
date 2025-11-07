@@ -1,0 +1,68 @@
+<!-- Panel de encabezado -->
+<div class="panel-header panel-header-sm"></div>
+
+<!-- Contenido principal -->
+<div class="main-content">
+  <div class="row">
+    <!-- Tabla de pedidos -->
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h2 class="card-title">Gestión de Pedidos</h2>
+              <p class="category">Administra los pedidos</p>
+            </div>
+            <button class="btn btn-success" (click)="crearPedido()">
+              Nuevo Pedido
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead class="text-primary">
+                <tr>
+                  <th>ID</th>
+                  <th>Usuario</th>
+                  <th>Carrito</th>
+                  <th>Dirección</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Fecha Creación</th>
+                  <th>Fecha Edición</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let pedido of pedidos">
+                  <td>{{ pedido.id }}</td>
+                  <td>{{ pedido.usuario }}</td>
+                  <td>{{ pedido.carrito }}</td>
+                  <td>{{ pedido.direccion }}</td>
+                  <td>{{ formatearPrecio(pedido.total) }}</td>
+                  <td>
+                    <span class="badge badge-primary">{{ pedido.estado }}</span>
+                  </td>
+                  <td>{{ pedido.fechaCreacion }}</td>
+                  <td>{{ pedido.fechaEdicion || '—' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-primary" (click)="editarPedido(pedido)">
+                      Editar
+                    </button>
+                    <button class="btn btn-sm btn-danger" (click)="eliminarPedido(pedido)">
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="!pedidos || pedidos.length === 0">
+                  <td colspan="9" class="text-center text-muted">No hay pedidos registrados.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

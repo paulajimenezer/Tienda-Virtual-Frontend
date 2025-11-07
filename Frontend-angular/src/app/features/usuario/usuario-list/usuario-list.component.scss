@@ -83,6 +83,9 @@
 
 .modal-body {
   padding: 1.5rem;
+  /* Permite desplazar formularios largos dentro del modal */
+  max-height: 65vh;
+  overflow-y: auto;
 }
 
 .modal-footer {
