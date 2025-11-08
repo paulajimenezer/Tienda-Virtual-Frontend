@@ -33,6 +33,31 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'facturas',
+    loadComponent: () => import('./features/factura/factura-list/factura-list.component').then(m => m.FacturaListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'descuentos',
+    loadComponent: () => import('./features/descuento/descuento-list/descuento-list.component').then(m => m.DescuentoListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'carritos',
+    loadComponent: () => import('./features/carrito/carrito/carrito-list.component').then(m => m.CarritoListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'item-carrito',
+    loadComponent: () => import('./features/itemCarrito/itemCarrito-list/itemCarrito-list.component').then(m => m.ItemCarritoListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'item-pedido',
+    loadComponent: () => import('./features/itemPedido/itemPedido-list/itemPedido-list.component').then(m => m.ItemPedidoListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.routes').then(m => m.authRoutes)
   },

@@ -93,7 +93,7 @@ import { Producto, ProductoFilters } from '../../../shared/models/producto.model
                 <tr *ngFor="let producto of productos">
                   <td>{{ producto.id }}</td>
                   <td>{{ producto.nombre }}</td>
-                  <td>${{ producto.precio | number:'1.2-2' }}</td>
+                  <td>{{ producto.precio | number:'1.2-2' }}</td>
                   <td>{{ producto.stock }}</td>
                   <td>{{ producto.categoria?.nombre || '-' }}</td>
                   <td>
@@ -190,8 +190,8 @@ export class ProductoListComponent implements OnInit {
 
     this.productoService.getProductos(pagination, this.filters).subscribe({
       next: (response) => {
-        this.productos = response.data;
-        this.totalPages = response.totalPages;
+        /*this.productos = response.data;
+        this.totalPages = response.totalPages;*/
         this.loading = false;
       },
       error: (error) => {

@@ -63,9 +63,9 @@ const MENU_SECTIONS: MenuSection[] = [
     title: 'Carritos y Pedidos',
     children: [
       { path: '/carritos', title: 'Carritos', icon: 'ui-1_bell-53', class: '' },
-      { path: '/carrito-items', title: 'Ítems del carrito', icon: 'ui-1_bell-53', class: '' },
+      { path: '/item-carrito', title: 'Ítems del carrito', icon: 'ui-1_bell-53', class: '' },
       { path: '/pedidos', title: 'Pedidos', icon: 'ui-1_bell-53', class: '' },
-      { path: '/pedido-items', title: 'Ítems del pedido', icon: 'ui-1_bell-53', class: '' }
+      { path: '/item-pedido', title: 'Ítems del pedido', icon: 'ui-1_bell-53', class: '' }
     ],
     expanded: false,
     icon: 'shopping_box' 
