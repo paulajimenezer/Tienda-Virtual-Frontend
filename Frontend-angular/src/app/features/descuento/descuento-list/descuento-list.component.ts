@@ -75,6 +75,21 @@ import { FormsModule } from '@angular/forms';
         this.loading = false;
       }
     });*/
+    // Fallback visual (sin backend) similar a Categoría
+    if (this.descuentos.length === 0) {
+      this.descuentos = [{
+        id: '1',
+        nombre: 'Descuento Bienvenida',
+        descripcion: '10% en primera compra',
+        activo: true,
+        fecha_creacion: new Date().toISOString(),
+        fecha_edicion: new Date().toISOString()
+      }];
+      this.totalPages = 1;
+    } else {
+      this.totalPages = Math.max(1, Math.ceil(this.descuentos.length / this.pageSize));
+    }
+    this.loading = false;
   }
 
   onFilterChange(): void {

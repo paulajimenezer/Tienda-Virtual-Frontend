@@ -39,46 +39,30 @@ export class ItemCarritoListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadItemsCarrito();
-    // Agregar un único item de ejemplo si está vacío (visual únicamente)
-    if (!this.loading && this.itemsCarrito.length === 0) {
-      this.itemsCarrito = [
-        {
-          id: '1',
-          carrito: 'Carrito #1',
-          producto: 'Producto demo',
-          cantidad: 2,
-          precio_unitario: 19.99,
-          activo: true,
-          fecha_creacion: new Date().toISOString()
-        }
-      ];
-      this.totalPages = 1;
-    }
   }
 
   loadItemsCarrito(): void {
     this.loading = true;
-    /*const pagination: PaginationParams = {
-      page: this.currentPage,
-      limit: this.pageSize
-    };
-
-    this.itemCarritoService.getItemsCarrito(pagination, this.filters).subscribe({
-      next: (itemsCarrito) => {
-        this.itemsCarrito = itemsCarrito;
-        // Since backend doesn't provide pagination info, we'll set a default
-        this.totalPages = Math.ceil(itemsCarrito.length / this.pageSize);
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error al cargar itemsCarrito:', error);
-        // Si el backend no está disponible, usar datos mock
-        this.loading = false;
-      }
-    });*/
     // Simulación visual sin backend
     setTimeout(() => {
       this.loading = false;
+      if (this.itemsCarrito.length === 0) {
+        this.itemsCarrito = [
+          {
+            id: '1',
+            carrito: 'Carrito #1',
+            producto: 'Producto demo',
+            cantidad: 2,
+            precio_unitario: 19990,
+            activo: true,
+            fecha_creacion: new Date().toISOString(),
+            fecha_edicion: new Date().toISOString()
+          }
+        ];
+        this.totalPages = 1;
+      } else {
+        this.totalPages = Math.max(1, Math.ceil(this.itemsCarrito.length / this.pageSize));
+      }
     }, 300);
   }
 

@@ -40,43 +40,28 @@ import { FormsModule } from '@angular/forms';
 
   ngOnInit(): void {
     this.loadItemsPedido();
-    // Un único ejemplo para mostrar
-    if (!this.loading && this.itemsPedido.length === 0) {
+  }
+
+  loadItemsPedido(): void {
+    this.loading = true;
+    // Simulación sin backend
+    this.loading = false;
+    if (this.itemsPedido.length === 0) {
       this.itemsPedido = [{
         id: '1',
         pedido: 'P-001',
         producto: 'Producto demo',
         cantidad: 3,
-        precio_unitario: 25.5,
+        precio_unitario: 25500,
         descuento: '10%',
         fecha_fin: '2025-12-31',
         fecha_creacion: new Date().toISOString(),
         fecha_edicion: new Date().toISOString()
       }];
       this.totalPages = 1;
+    } else {
+      this.totalPages = Math.max(1, Math.ceil(this.itemsPedido.length / this.pageSize));
     }
-  }
-
-  loadItemsPedido(): void {
-    this.loading = true;
-    /*const pagination: PaginationParams = {
-      page: this.currentPage,
-      limit: this.pageSize
-    };
-
-    this.itemPedidoService.getItemsPedido(pagination, this.filters).subscribe({
-      next: (itemsPedido) => {
-        this.itemsPedido = itemsPedido;
-        // Since backend doesn't provide pagination info, we'll set a default
-        this.totalPages = Math.ceil(itemsPedido.length / this.pageSize);
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error al cargar itemsPedido:', error);
-        // Si el backend no está disponible, usar datos mock
-        this.loading = false;
-      }
-    });*/
   }
 
   onFilterChange(): void {

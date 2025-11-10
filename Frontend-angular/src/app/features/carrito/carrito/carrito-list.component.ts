@@ -39,19 +39,6 @@ export class CarritoListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCarritos();
-    // Si no hay backend y la lista está vacía, agregar un carrito de ejemplo
-    if (!this.loading && this.carritos.length === 0) {
-      this.carritos = [
-        {
-          id: '1',
-          usuario: 'usuario.demo',
-          activo: true,
-          fecha_creacion: new Date().toISOString(),
-          fecha_edicion: new Date().toISOString()
-        }
-      ];
-      this.totalPages = 1;
-    }
   }
 
   loadCarritos(): void {
@@ -74,6 +61,22 @@ export class CarritoListComponent implements OnInit {
         this.loading = false;
       }
     });*/
+    // Fallback visual (sin backend) basado en categoría
+    if (this.carritos.length === 0) {
+      this.carritos = [
+        {
+          id: '1',
+          usuario: 'usuario.demo',
+          activo: true,
+          fecha_creacion: new Date().toISOString(),
+          fecha_edicion: new Date().toISOString()
+        }
+      ];
+      this.totalPages = 1;
+    } else {
+      this.totalPages = Math.max(1, Math.ceil(this.carritos.length / this.pageSize));
+    }
+    this.loading = false;
   }
 
   onFilterChange(): void {
