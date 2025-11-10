@@ -1,0 +1,198 @@
+<div class="itempedido-list">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Gestión de Items de Pedido</h2>
+      <button class="btn btn-success" (click)="openCreateModal()">
+        Nuevo ItemPedido
+      </button>
+    </div>
+    
+    <div class="card-body">
+      <!-- Filtros -->
+      <div class="filters mb-3">
+        <div class="row">
+          <div class="col-md-4">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Buscar por producto..."
+              [(ngModel)]="filters.producto"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-3">
+            <select 
+              class="form-control" 
+              [(ngModel)]="filters.pedido"
+              (change)="onFilterChange()"
+            >
+              <option value="">Todos los pedidos</option>
+              <option value="P-001">P-001</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-secondary" (click)="clearFilters()">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de itemsPedido -->
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Pedido</th>
+              <th>Producto</th>
+              <th>Cantidad</th>
+              <th>Precio Unitario</th>
+              <th>Descuento</th>
+              <th>Fecha Fin</th>
+              <th>Fecha Creación</th>
+              <th>Fecha Edición</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="10" class="text-center">Cargando...</td>
+            </tr>
+            <tr *ngIf="!loading && itemsPedido.length === 0">
+              <td colspan="10" class="text-center">No hay items de pedido disponibles</td>
+            </tr>
+            <tr *ngFor="let item of itemsPedido">
+              <td>{{ item.id }}</td>
+              <td>{{ item.pedido }}</td>
+              <td>{{ item.producto }}</td>
+              <td>{{ item.cantidad }}</td>
+              <td>{{ item.precio_unitario }}</td>
+              <td>{{ item.descuento }}</td>
+              <td>{{ item.fecha_fin || '-' }}</td>
+              <td>{{ item.fecha_creacion | date:'short' }}</td>
+              <td>{{ item.fecha_edicion | date:'short' }}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" (click)="editItemPedido(item)">Editar</button>
+                <button class="btn btn-sm btn-danger" (click)="deleteItemPedido(item)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      <div class="pagination mt-3" *ngIf="totalPages > 1">
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === 1"
+          (click)="goToPage(currentPage - 1)"
+        >
+          Anterior
+        </button>
+        <span class="mx-3">
+          Página {{ currentPage }} de {{ totalPages }}
+        </span>
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === totalPages"
+          (click)="goToPage(currentPage + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para crear/editar itemPedido -->
+  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ editingItemPedido ? 'Editar ItemPedido' : 'Nuevo ItemPedido' }}</h5>
+          <button type="button" class="close" (click)="closeModal()">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="saveItemPedido()">
+            <div class="form-group">
+              <label for="pedido">Pedido *</label>
+              <input
+                type="text"
+                class="form-control"
+                id="pedido"
+                [(ngModel)]="itemPedidoForm.pedido"
+                name="pedido"
+                placeholder="Código del pedido"
+              >
+            </div>
+            <div class="form-group">
+              <label for="producto">Producto *</label>
+              <input
+                type="text"
+                class="form-control"
+                id="producto"
+                [(ngModel)]="itemPedidoForm.producto"
+                name="producto"
+                required
+                placeholder="Nombre del producto"
+              >
+            </div>
+            <div class="form-group">
+              <label for="cantidad">Cantidad *</label>
+              <input
+                type="number"
+                min="1"
+                class="form-control"
+                id="cantidad"
+                [(ngModel)]="itemPedidoForm.cantidad"
+                name="cantidad"
+                placeholder="Cantidad"
+              >
+            </div>
+            <div class="form-group">
+              <label for="precio_unitario">Precio Unitario *</label>
+              <input
+                type="number"
+                step="0.01"
+                class="form-control"
+                id="precio_unitario"
+                [(ngModel)]="itemPedidoForm.precio_unitario"
+                name="precio_unitario"
+                placeholder="0.00"
+              >
+            </div>
+            <div class="form-group">
+              <label for="descuento">Descuento</label>
+              <input
+                type="text"
+                class="form-control"
+                id="descuento"
+                [(ngModel)]="itemPedidoForm.descuento"
+                name="descuento"
+                placeholder="Ej: 10%"
+              >
+            </div>
+            <div class="form-group">
+              <label for="fecha_fin">Fecha Fin</label>
+              <input
+                type="date"
+                class="form-control"
+                id="fecha_fin"
+                [(ngModel)]="itemPedidoForm.fecha_fin"
+                name="fecha_fin"
+              >
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="saveItemPedido()">
+            {{ editingItemPedido ? 'Actualizar' : 'Crear' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
