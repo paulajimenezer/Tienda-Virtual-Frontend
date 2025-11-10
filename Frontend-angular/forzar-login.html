@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Forzar Login - Sistema ITM</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 100px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            width: 200px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 Forzar Acceso al Login</h1>
+        <p>Este script limpiará todo y te llevará directamente al login.</p>
+        
+        <button onclick="forzarLogin()">🧹 Limpiar Todo y Ir al Login</button>
+        
+        <div id="resultado"></div>
+        
+        <div class="info">
+            <h3>Estado Actual:</h3>
+            <p><strong>Token:</strong> <span id="token">-</span></p>
+            <p><strong>Usuario:</strong> <span id="usuario">-</span></p>
+            <p><strong>Rol:</strong> <span id="rol">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        function actualizarEstado() {
+            document.getElementById('token').textContent = localStorage.getItem('auth_token') || 'No hay token';
+            document.getElementById('usuario').textContent = localStorage.getItem('user_data') || 'No hay usuario';
+            document.getElementById('rol').textContent = localStorage.getItem('user_role') || 'No hay rol';
+        }
+
+        function forzarLogin() {
+            try {
+                // Limpiar todo
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Mostrar resultado
+                document.getElementById('resultado').innerHTML = 
+                    '<div class="success">✅ Todo limpiado. Redirigiendo al login...</div>';
+                
+                // Actualizar estado
+                actualizarEstado();
+                
+                // Redirigir al login
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:4200/auth/login';
+                }, 1500);
+                
+            } catch (error) {
+                document.getElementById('resultado').innerHTML = 
+                    '<div style="color: red;">❌ Error: ' + error.message + '</div>';
+            }
+        }
+
+        // Actualizar estado al cargar
+        actualizarEstado();
+    </script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<div class="descuento-list">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Gestión de Descuentos</h2>
+      <button class="btn btn-success" (click)="openCreateModal()">
+        Nuevo Descuento
+      </button>
+    </div>
+    
+    <div class="card-body">
+      <!-- Filtros -->
+      <div class="filters mb-3">
+        <div class="row">
+          <div class="col-md-4">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Buscar por nombre..."
+              [(ngModel)]="filters.nombre"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-3">
+            <select 
+              class="form-control" 
+              [(ngModel)]="filters.activa"
+              (change)="onFilterChange()"
+            >
+              <option value="">Todos los estados</option>
+              <option value="true">Activas</option>
+              <option value="false">Inactivas</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-secondary" (click)="clearFilters()">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de descuentos -->
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Código</th>
+              <th>Porcentaje</th>
+              <th>Pedido</th>
+              <th>Estado</th>
+              <th>Fecha Inicio</th>
+              <th>Fecha Fin</th>
+              <th>Fecha Creación</th>
+              <th>Fecha Edición</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="10" class="text-center">Cargando...</td>
+            </tr>
+            <tr *ngIf="!loading && descuentos.length === 0">
+              <td colspan="10" class="text-center">No hay descuentos disponibles</td>
+            </tr>
+            <tr *ngFor="let descuento of descuentos">
+              <td>{{ descuento.id }}</td>
+              <td>{{ descuento.nombre }}</td>
+              <td>{{ descuento.descripcion || '-' }}</td>
+              <td>
+                <span class="badge" [class.badge-success]="descuento.activo" [class.badge-danger]="!descuento.activo">
+                  {{ descuento.activo ? 'Activa' : 'Inactiva' }}
+                </span>
+              </td>
+              <td>{{ descuento.fecha_creacion | date:'short' }}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" (click)="editDescuento(descuento)">
+                  Editar
+                </button>
+                <button class="btn btn-sm btn-danger" (click)="deleteDescuento(descuento)">
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      <div class="pagination mt-3" *ngIf="totalPages > 1">
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === 1"
+          (click)="goToPage(currentPage - 1)"
+        >
+          Anterior
+        </button>
+        <span class="mx-3">
+          Página {{ currentPage }} de {{ totalPages }}
+        </span>
+        <button 
+          class="btn btn-secondary" 
+          [disabled]="currentPage === totalPages"
+          (click)="goToPage(currentPage + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para crear/editar descuento -->
+  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ editingDescuento ? 'Editar Descuento' : 'Nueva Descuento' }}</h5>
+          <button type="button" class="close" (click)="closeModal()">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="saveDescuento()">
+            <div class="form-group">
+              <label for="nombre">Código *</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="codigo" 
+                [(ngModel)]="descuentoForm.codigo" 
+                name="codigo"
+                required
+                placeholder="Ingrese el codigo del descuento"
+              >
+            </div>
+            <div class="form-group">
+              <label for="porcentaje">Porcentaje *</label>
+              <textarea 
+                class="form-control" 
+                id="porcentaje" 
+                [(ngModel)]="descuentoForm.porcentaje" 
+                name="porcentaje"
+                rows="3"
+                placeholder="Ingrese un porcentaje"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input 
+                  type="checkbox" 
+                  class="form-check-input" 
+                  id="activa" 
+                  [(ngModel)]="descuentoForm.activa" 
+                  name="activa"
+                >
+                <label class="form-check-label" for="activa">
+                  Descuento activo
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="saveDescuento()">
+            {{ editingDescuento ? 'Actualizar' : 'Crear' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

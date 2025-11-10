@@ -1,0 +1,176 @@
+<div class="pedido-list">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Gestión de Pedidos</h2>
+      <button class="btn btn-success" (click)="openCreateModal()">
+        Nuevo Pedido
+      </button>
+    </div>
+
+    <div class="card-body">
+      <!-- Filtros -->
+      <div class="filters mb-3">
+        <div class="row">
+          <div class="col-md-4">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Buscar por usuario..."
+              [(ngModel)]="filters.usuario"
+              (input)="onFilterChange()"
+            >
+          </div>
+          <div class="col-md-3">
+            <select
+              class="form-control"
+              [(ngModel)]="filters.estado"
+              (change)="onFilterChange()"
+            >
+              <option value="">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="pagado">Pagado</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-secondary" (click)="clearFilters()">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de pedidos -->
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Usuario</th>
+              <th>Total</th>
+              <th>Estado</th>
+              <th>Fecha Creación</th>
+              <th>Fecha Edición</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="7" class="text-center">Cargando...</td>
+            </tr>
+            <tr *ngIf="!loading && pedidos.length === 0">
+              <td colspan="7" class="text-center">No hay pedidos disponibles</td>
+            </tr>
+            <tr *ngFor="let pedido of pedidos">
+              <td>{{ pedido.id }}</td>
+              <td>{{ pedido.usuario }}</td>
+              <td>{{ formatearPrecio(pedido.total) }}</td>
+              <td>
+                <span class="badge"
+                  [class.badge-success]="pedido.estado === 'pagado'"
+                  [class.badge-warning]="pedido.estado === 'pendiente'"
+                  [class.badge-danger]="pedido.estado === 'cancelado'"
+                >
+                  {{ pedido.estado | titlecase }}
+                </span>
+              </td>
+              <td>{{ pedido.fecha_creacion | date:'short' }}</td>
+              <td>{{ pedido.fecha_edicion | date:'short' }}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" (click)="editPedido(pedido)">
+                  Editar
+                </button>
+                <button class="btn btn-sm btn-danger" (click)="deletePedido(pedido)">
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación -->
+      <div class="pagination mt-3" *ngIf="totalPages > 1">
+        <button
+          class="btn btn-secondary"
+          [disabled]="currentPage === 1"
+          (click)="goToPage(currentPage - 1)"
+        >
+          Anterior
+        </button>
+        <span class="mx-3">
+          Página {{ currentPage }} de {{ totalPages }}
+        </span>
+        <button
+          class="btn btn-secondary"
+          [disabled]="currentPage === totalPages"
+          (click)="goToPage(currentPage + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para crear/editar pedido -->
+  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">{{ editingPedido ? 'Editar Pedido' : 'Nuevo Pedido' }}</h5>
+          <button type="button" class="close" (click)="closeModal()">
+            <span>&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="savePedido()">
+            <div class="form-group">
+              <label for="usuario">Usuario *</label>
+              <input
+                type="text"
+                class="form-control"
+                id="usuario"
+                [(ngModel)]="pedidoForm.usuario"
+                name="usuario"
+                required
+                placeholder="Nombre del usuario"
+              >
+            </div>
+            <div class="form-group">
+              <label for="total">Total *</label>
+              <input
+                type="number"
+                class="form-control"
+                id="total"
+                [(ngModel)]="pedidoForm.total"
+                name="total"
+                required
+                placeholder="Valor total del pedido"
+              >
+            </div>
+            <div class="form-group">
+              <label for="estado">Estado *</label>
+              <select
+                id="estado"
+                class="form-control"
+                [(ngModel)]="pedidoForm.estado"
+                name="estado"
+                required
+              >
+                <option value="pendiente">Pendiente</option>
+                <option value="pagado">Pagado</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="savePedido()">
+            {{ editingPedido ? 'Actualizar' : 'Crear' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
