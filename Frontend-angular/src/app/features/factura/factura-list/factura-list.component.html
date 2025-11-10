@@ -1,0 +1,121 @@
+<div class="factura-list">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Gestión de Facturas</h2>
+      <button class="btn btn-success" (click)="openCreateModal()">Nueva Factura</button>
+    </div>
+
+    <div class="card-body">
+      <!-- Filtros (visuales) -->
+        <div class="filters mb-3">
+          <div class="row">
+            <div class="col-md-3">
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Buscar por número..."
+                [(ngModel)]="filters.numero"
+                (input)="onFilterChange()"
+              >
+            </div>
+            <div class="col-md-3">
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Buscar por cliente..."
+                [(ngModel)]="filters.cliente"
+                (input)="onFilterChange()"
+              >
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-secondary" (click)="clearFilters()">Limpiar</button>
+            </div>
+          </div>
+        </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Número</th>
+              <th>Pedido</th>
+              <th>Total</th>
+              <th>Fecha Emisión</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="loading">
+              <td colspan="6" class="text-center">Cargando...</td>
+            </tr>
+            <tr *ngIf="!loading && facturas.length === 0">
+              <td colspan="6" class="text-center">No hay facturas disponibles</td>
+            </tr>
+            <tr *ngFor="let factura of facturas">
+              <td>{{ factura.id }}</td>
+              <td>{{ factura.numero }}</td>
+              <td>{{ factura.pedido || '-' }}</td>
+              <td>{{ factura.total | number:'1.2-2' }}</td>
+              <td>{{ factura.fecha_emision }}</td>
+              <td>
+                <button class="btn btn-sm btn-primary" (click)="editFactura(factura)">Editar</button>
+                <button class="btn btn-sm btn-danger" (click)="deleteFactura(factura)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal para crear/editar factura -->
+<div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ editingFactura ? 'Editar Factura' : 'Nueva Factura' }}</h5>
+        <button type="button" class="close" (click)="closeModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form (ngSubmit)="saveFactura()">
+          <div class="form-group">
+            <label for="numero">Número de factura *</label>
+            <input type="text" class="form-control" id="numero" name="numero" [(ngModel)]="facturaForm.numero" placeholder="Ingrese el número de factura">
+          </div>
+          <div class="form-group">
+            <label for="cliente">Cliente *</label>
+            <input type="text" class="form-control" id="cliente" name="cliente" [(ngModel)]="facturaForm.cliente" placeholder="Nombre del cliente">
+          </div>
+          <div class="form-group">
+            <label for="pedido">Pedido asociado</label>
+            <input type="text" class="form-control" id="pedido" name="pedido" [(ngModel)]="facturaForm.pedido" placeholder="ID de pedido (opcional)">
+          </div>
+          <div class="form-group">
+            <label for="fecha_emision">Fecha de emisión *</label>
+            <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" [(ngModel)]="facturaForm.fecha_emision">
+          </div>
+          <div class="form-group">
+            <label for="fecha_vencimiento">Fecha de vencimiento</label>
+            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento" [(ngModel)]="facturaForm.fecha_vencimiento">
+          </div>
+          <div class="form-group">
+            <label for="total">Total *</label>
+            <input type="number" class="form-control" id="total" name="total" min="0" step="0.01" [(ngModel)]="facturaForm.total" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label for="observaciones">Observaciones</label>
+            <textarea class="form-control" id="observaciones" name="observaciones" [(ngModel)]="facturaForm.observaciones" rows="3" placeholder="Notas u observaciones"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="saveFactura()">{{ editingFactura ? 'Actualizar' : 'Guardar' }}</button>
+      </div>
+    </div>
+  </div>
+</div>
