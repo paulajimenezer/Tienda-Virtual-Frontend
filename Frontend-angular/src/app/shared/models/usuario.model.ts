@@ -4,9 +4,19 @@
 export interface Usuario {
   id: string; // UUID
   nombre: string;
+  apellido?: string;
   nombre_usuario: string;
   email: string;
+  numero_documento?: string;
   telefono?: string;
+  // IDs normalizadores devueltos por el backend
+  id_tipo_documento?: string;
+  id_sexo?: string;
+  id_rol?: string;
+  // Campos derivados opcionales si el backend los entrega ya resueltos
+  tipo_documento?: string;
+  genero?: string;
+  rol?: string;
   activo: boolean;
   es_admin: boolean;
   fecha_creacion: string;

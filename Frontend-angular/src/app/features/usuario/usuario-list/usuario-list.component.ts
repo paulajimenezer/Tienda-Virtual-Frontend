@@ -54,6 +54,7 @@ export class UsuarioListComponent implements OnInit {
     this.usuarioService.getUsuarios(pagination, this.filters).subscribe({
       next: (usuarios) => {
         this.usuarios = usuarios;
+        this.totalPages = Math.max(1, Math.ceil(this.usuarios.length / this.pageSize));
         this.loading = false;
       },
       error: (error) => {
