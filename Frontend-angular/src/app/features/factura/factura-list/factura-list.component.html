@@ -1,121 +1,177 @@
-<div class="factura-list">
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Gestión de Facturas</h2>
-      <button class="btn btn-success" (click)="openCreateModal()">Nueva Factura</button>
-    </div>
+<div class="management">
+  <section class="card">
+    <header class="card__header">
+      <div class="card__titles">
+        <h1>Facturas</h1>
+        <p>Consulta y administra los comprobantes generados a partir de pedidos.</p>
+      </div>
+  <button *ngIf="isAdmin" type="button" class="btn btn--primary" (click)="openCreateModal()">Nueva factura</button>
+    </header>
 
-    <div class="card-body">
-      <!-- Filtros (visuales) -->
-        <div class="filters mb-3">
-          <div class="row">
-            <div class="col-md-3">
-              <input 
-                type="text" 
-                class="form-control" 
-                placeholder="Buscar por número..."
-                [(ngModel)]="filters.numero"
-                (input)="onFilterChange()"
-              >
-            </div>
-            <div class="col-md-3">
-              <input 
-                type="text" 
-                class="form-control" 
-                placeholder="Buscar por cliente..."
-                [(ngModel)]="filters.cliente"
-                (input)="onFilterChange()"
-              >
-            </div>
-            <div class="col-md-2">
-              <button class="btn btn-secondary" (click)="clearFilters()">Limpiar</button>
-            </div>
-          </div>
+    <div class="card__body">
+      <section class="feature__filters">
+        <div class="filters__row">
+          <label>
+            <span>Número</span>
+            <input [(ngModel)]="filters.numero" (input)="onFilterChange()" placeholder="Buscar por número" />
+          </label>
+          <label>
+            <span>Pedido</span>
+            <input [(ngModel)]="filters.pedido" (input)="onFilterChange()" placeholder="Filtrar por pedido" />
+          </label>
+          <label>
+            <span>Fecha</span>
+            <input type="date" [(ngModel)]="filters.fecha" (change)="onFilterChange()" />
+          </label>
+          <button type="button" class="btn btn--ghost" (click)="clearFilters()">Limpiar</button>
         </div>
-      <div class="table-responsive">
-        <table class="table">
+      </section>
+
+      <p *ngIf="errorMessage" class="feature__state feature__state--error">{{ errorMessage }}</p>
+      <p *ngIf="loading" class="feature__state">Cargando facturas...</p>
+
+      <div class="table-wrapper table-wrapper--fixed" *ngIf="facturas.length">
+        <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Número</th>
+              <th>Factura</th>
               <th>Pedido</th>
+              <th>Usuario</th>
+              <th>Subtotal</th>
+              <th>Impuesto</th>
               <th>Total</th>
-              <th>Fecha Emisión</th>
-              <th>Acciones</th>
+              <th>Total pedido</th>
+              <th>Fecha emisión</th>
+              <th class="text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngIf="loading">
-              <td colspan="6" class="text-center">Cargando...</td>
-            </tr>
-            <tr *ngIf="!loading && facturas.length === 0">
-              <td colspan="6" class="text-center">No hay facturas disponibles</td>
-            </tr>
-            <tr *ngFor="let factura of facturas">
-              <td>{{ factura.id }}</td>
-              <td>{{ factura.numero }}</td>
-              <td>{{ factura.pedido || '-' }}</td>
-              <td>{{ factura.total | number:'1.2-2' }}</td>
-              <td>{{ factura.fecha_emision }}</td>
-              <td>
-                <button class="btn btn-sm btn-primary" (click)="editFactura(factura)">Editar</button>
-                <button class="btn btn-sm btn-danger" (click)="deleteFactura(factura)">Eliminar</button>
-              </td>
-            </tr>
+            <ng-container *ngFor="let factura of facturas">
+              <tr>
+                <td>
+                  <div class="table-cell__primary">
+                    <strong>{{ factura.numero_factura }}</strong>
+                    <span *ngIf="factura.id" class="table-cell__secondary">ID: {{ factura.id }}</span>
+                  </div>
+                </td>
+                <td>{{ factura.id_pedido }}</td>
+                <td>{{ getFacturaUsuarioNombre(factura) }}</td>
+                <td>{{ factura.subtotal | number:'1.2-2' }}</td>
+                <td>{{ factura.impuesto | number:'1.2-2' }}</td>
+                <td>{{ factura.total | number:'1.2-2' }}</td>
+                <td>
+                  <ng-container *ngIf="getPedidoTotal(factura) as pedidoTotal; else pedidoSinDato">
+                    {{ pedidoTotal | number:'1.2-2' }}
+                  </ng-container>
+                </td>
+                <td>{{ factura.fecha_emision ? (factura.fecha_emision | date:'short') : '—' }}</td>
+                <td class="table-actions">
+                  <div class="actions-group">
+                    <div class="actions-row actions-row--top">
+                      <ng-container *ngIf="isAdmin">
+                        <button type="button" class="btn btn--ghost" (click)="edit(factura)">Editar</button>
+                        <button type="button" class="btn btn--danger" (click)="remove(factura)" [disabled]="saving">Eliminar</button>
+                      </ng-container>
+                    </div>
+                    <div class="actions-row actions-row--bottom">
+                      <button type="button" class="btn btn--ghost btn--sm" (click)="toggleFacturaItems(factura.id)">
+                        {{ isFacturaExpanded(factura.id) ? 'Ocultar productos' : 'Ver productos' }}
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="isFacturaExpanded(factura.id)">
+                <td colspan="9" class="p-0">
+                  <div class="nested-table-wrapper">
+                    <table class="nested-table">
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th class="text-right">Cantidad</th>
+                          <th class="text-right">Precio unitario</th>
+                          <th class="text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let item of (factura.pedido?.items || [])">
+                          <td>{{ getFacturaItemName(item) }}</td>
+                          <td class="text-right">{{ getFacturaItemQuantity(item) }}</td>
+                          <td class="text-right">{{ getFacturaItemUnitPrice(item) !== null ? (getFacturaItemUnitPrice(item) | number:'1.2-2') : '—' }}</td>
+                          <td class="text-right">{{ getFacturaItemSubtotal(item) !== null ? (getFacturaItemSubtotal(item) | number:'1.2-2') : '—' }}</td>
+                        </tr>
+                        <tr *ngIf="!(factura.pedido?.items?.length)">
+                          <td colspan="4" class="text-center">No hay productos asociados a este pedido.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
           </tbody>
         </table>
       </div>
-    </div>
-  </div>
 
+      <p *ngIf="!loading && !facturas.length" class="feature__state feature__state--empty">No hay facturas registradas.</p>
+
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">Siguiente</button>
+      </div>
+    </div>
+  </section>
 </div>
 
-<!-- Modal para crear/editar factura -->
-<div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">{{ editingFactura ? 'Editar Factura' : 'Nueva Factura' }}</h5>
-        <button type="button" class="close" (click)="closeModal()">
-          <span>&times;</span>
+<ng-template #pedidoSinDato>—</ng-template>
+
+<div class="modal" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal__dialog" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h2>{{ modalTitle }}</h2>
+      <button type="button" class="modal__close" (click)="closeModal()">×</button>
+    </header>
+
+    <form class="modal__form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Pedido *</span>
+          <select formControlName="id_pedido">
+            <option value="">Selecciona un pedido</option>
+            <option *ngFor="let pedido of pedidos" [value]="pedido.id">{{ pedido.id }}</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Número *</span>
+          <input formControlName="numero_factura" type="text" />
+        </label>
+      </div>
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Subtotal *</span>
+          <input formControlName="subtotal" type="number" min="0" step="0.01" />
+        </label>
+        <label class="form-field">
+          <span>Impuesto *</span>
+          <input formControlName="impuesto" type="number" min="0" step="0.01" />
+        </label>
+      </div>
+      <label class="form-field">
+        <span>Total *</span>
+        <input formControlName="total" type="number" min="0" step="0.01" />
+      </label>
+      <label class="form-field">
+        <span>Fecha de emisión</span>
+        <input formControlName="fecha_emision" type="date" />
+      </label>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving">
+          {{ editingId ? 'Actualizar' : 'Crear' }}
         </button>
-      </div>
-      <div class="modal-body">
-        <form (ngSubmit)="saveFactura()">
-          <div class="form-group">
-            <label for="numero">Número de factura *</label>
-            <input type="text" class="form-control" id="numero" name="numero" [(ngModel)]="facturaForm.numero" placeholder="Ingrese el número de factura">
-          </div>
-          <div class="form-group">
-            <label for="cliente">Cliente *</label>
-            <input type="text" class="form-control" id="cliente" name="cliente" [(ngModel)]="facturaForm.cliente" placeholder="Nombre del cliente">
-          </div>
-          <div class="form-group">
-            <label for="pedido">Pedido asociado</label>
-            <input type="text" class="form-control" id="pedido" name="pedido" [(ngModel)]="facturaForm.pedido" placeholder="ID de pedido (opcional)">
-          </div>
-          <div class="form-group">
-            <label for="fecha_emision">Fecha de emisión *</label>
-            <input type="date" class="form-control" id="fecha_emision" name="fecha_emision" [(ngModel)]="facturaForm.fecha_emision">
-          </div>
-          <div class="form-group">
-            <label for="fecha_vencimiento">Fecha de vencimiento</label>
-            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento" [(ngModel)]="facturaForm.fecha_vencimiento">
-          </div>
-          <div class="form-group">
-            <label for="total">Total *</label>
-            <input type="number" class="form-control" id="total" name="total" min="0" step="0.01" [(ngModel)]="facturaForm.total" placeholder="0.00">
-          </div>
-          <div class="form-group">
-            <label for="observaciones">Observaciones</label>
-            <textarea class="form-control" id="observaciones" name="observaciones" [(ngModel)]="facturaForm.observaciones" rows="3" placeholder="Notas u observaciones"></textarea>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-        <button type="button" class="btn btn-primary" (click)="saveFactura()">{{ editingFactura ? 'Actualizar' : 'Guardar' }}</button>
-      </div>
-    </div>
+      </footer>
+    </form>
   </div>
 </div>
+

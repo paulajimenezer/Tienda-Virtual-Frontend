@@ -1,219 +1,287 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { PaginationParams } from '../../../core/models/api-response.model';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, inject } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { UsuarioService } from '../../../core/services/usuario.service';
-import { CreateUsuarioRequest, UpdateUsuarioRequest, Usuario, UsuarioFilters } from '../../../shared/models/usuario.model';
+import { AuthService } from '../../../core/services/auth.service';
+import { Usuario, UsuarioCreate, UsuarioUpdate, UsuarioFilters } from '../../../shared/models/usuario.model';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-usuario-list',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './usuario-list.component.html',
-  styleUrl: './usuario-list.component.scss'
+  styleUrls: ['./usuario-list.component.scss']
 })
 export class UsuarioListComponent implements OnInit {
-  usuarios: Usuario[] = [];
-  loading = false;
-  currentPage = 1;
-  totalPages = 1;
-  pageSize = 10;
-  
-  filters: UsuarioFilters = {};
-  
-  // Modal properties
-  showModal = false;
-  editingUsuario: Usuario | null = null;
-  usuarioForm: FormGroup;
+  private readonly http = inject(HttpClient);
+  private readonly fb = inject(FormBuilder);
+  private readonly apiUrl = environment.apiUrl;
+  private readonly usersEndpoint = `${this.apiUrl}/usuarios/`;
+  private readonly usuarioService = inject(UsuarioService);
+  private readonly authService = inject(AuthService);
 
-  constructor(
-    private usuarioService: UsuarioService,
-    private fb: FormBuilder
-  ) {
-    this.usuarioForm = this.fb.group({
-      nombre: ['', [Validators.required, Validators.minLength(2)]],
-      nombre_usuario: ['', [Validators.required, Validators.minLength(3)]],
-      email: ['', [Validators.required, Validators.email]],
-      telefono: [''],
-      contraseña: [''],
-      es_admin: [false]
-    });
-  }
+  readonly rolesOptions = [
+    { id: 'a295ed20-9aa4-4819-afab-d7f3480bed7d', label: 'Cliente' },
+    { id: 'ca26014d-6a7f-449f-ae64-eedcb017e9a3', label: 'Administrador' },
+  ];
+
+  readonly tipoDocumentoOptions = [
+    { id: '09cac2ca-72b0-4578-8b2f-b4e53e9b14e9', label: 'TI' },
+    { id: 'ed16b917-2a00-48e6-a58c-09ebf7c87d0d', label: 'CC' },
+    { id: 'dfb2f5a4-967f-4507-a86e-88c4729f7f61', label: 'PP' },
+  ];
+
+  readonly sexoOptions = [
+    { id: 'fd2e7d39-7c3f-4524-8618-61d58360a20d', label: 'Femenino' },
+    { id: '5e5d56e6-56af-435b-bccb-1440e604ddb5', label: 'Masculino' },
+    { id: '20280792-9e56-4050-babf-a4505852a364', label: 'Otro' },
+  ];
+
+  usuarios: Usuario[] = [];
+  private allUsuarios: Usuario[] = [];
+  private filteredUsuarios: Usuario[] = [];
+  private currentUserId: string | null = null;
+
+  filters = {
+    nombre: '',
+    email: '',
+    activo: ''
+  };
+
+  loading = false;
+  saving = false;
+  errorMessage = '';
+  currentPage = 1;
+  pageSize = 10;
+  totalPages = 1;
+  editingId: string | null = null;
+  modalOpen = false;
+  modalTitle = 'Nuevo usuario';
+
+  readonly form = this.fb.group({
+    nombre: ['', [Validators.required, Validators.minLength(2)]],
+    apellido: ['', [Validators.required, Validators.minLength(2)]],
+    email: ['', [Validators.required, Validators.email]],
+    password: [''],
+    numero_documento: ['', Validators.required],
+    id_rol: ['', Validators.required],
+    id_tipo_documento: ['', Validators.required],
+    id_sexo: [''],
+    activo: [true]
+  });
 
   ngOnInit(): void {
-    this.loadUsuarios();
+    const currentUser = this.authService.getCurrentUser();
+    this.currentUserId = currentUser?.id ?? null;
+    this.loadData();
   }
 
-  loadUsuarios(): void {
-    this.loading = true;
-    const pagination: PaginationParams = {
-      page: this.currentPage,
-      limit: this.pageSize
+  private buildFilters(): UsuarioFilters {
+    return {
+      nombre: this.filters.nombre.trim() || undefined,
+      email: this.filters.email.trim() || undefined,
+      activo:
+        this.filters.activo === ''
+          ? undefined
+          : this.filters.activo === 'true'
     };
+  }
 
-    this.usuarioService.getUsuarios(pagination, this.filters).subscribe({
-      next: (usuarios) => {
-        this.usuarios = usuarios;
-        this.totalPages = Math.max(1, Math.ceil(this.usuarios.length / this.pageSize));
+  loadData(): void {
+    this.loading = true;
+    this.errorMessage = '';
+    
+    console.log('🔍 Cargando usuarios desde:', `${this.apiUrl}/usuarios/`);
+    console.log('🔑 Token en localStorage:', localStorage.getItem('auth_token') ? 'SÍ' : 'NO');
+    
+    this.http.get<Usuario[]>(`${this.apiUrl}/usuarios/`).subscribe({
+      next: data => {
+        console.log('✅ Usuarios recibidos:', data.length);
+        this.allUsuarios = data ?? [];
+        this.applyFilters();
         this.loading = false;
       },
-      error: (error) => {
-        console.error('Error al cargar usuarios:', error);
-        // Si el backend no está disponible, usar datos mock
-        if (error.status === 0 || error.status === undefined) {
-          console.log('Backend no disponible, usando datos mock para usuarios');
-          this.usuarios = [{
-            id: '1',
-            nombre: 'Administrador',
-            nombre_usuario: 'admin',
-            email: 'admin@itm.edu.co',
-            telefono: '',
-            activo: true,
-            es_admin: true,
-            fecha_creacion: new Date().toISOString(),
-            fecha_edicion: new Date().toISOString()
-          }];
-          this.totalPages = 1;
-        }
+      error: err => {
+        console.error('❌ Error al cargar usuarios:', err);
+        console.error('Status:', err.status);
+        console.error('Detail:', err.error);
+        this.errorMessage = 'No fue posible cargar los usuarios.';
         this.loading = false;
       }
     });
   }
 
+  private applyFilters(): void {
+    const termNombre = this.filters.nombre.trim().toLowerCase();
+    const termEmail = this.filters.email.trim().toLowerCase();
+    const filterActivo = this.filters.activo;
+
+    this.filteredUsuarios = this.allUsuarios.filter(usuario => {
+      const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`.toLowerCase();
+      const matchesNombre = !termNombre || nombreCompleto.includes(termNombre);
+      const matchesEmail = !termEmail || usuario.email.toLowerCase().includes(termEmail);
+      const matchesActivo =
+        filterActivo === '' ||
+        (filterActivo === 'true' && usuario.activo !== false) ||
+        (filterActivo === 'false' && usuario.activo === false);
+      return matchesNombre && matchesEmail && matchesActivo;
+    });
+
+    this.totalPages = Math.max(1, Math.ceil(this.filteredUsuarios.length / this.pageSize));
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
+    const start = (this.currentPage - 1) * this.pageSize;
+    this.usuarios = this.filteredUsuarios.slice(start, start + this.pageSize);
+  }
+
   onFilterChange(): void {
     this.currentPage = 1;
-    this.loadUsuarios();
+    this.applyFilters();
   }
 
   clearFilters(): void {
-    this.filters = {};
-    this.currentPage = 1;
-    this.loadUsuarios();
+    this.filters = { nombre: '', email: '', activo: '' };
+    this.onFilterChange();
   }
 
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      this.loadUsuarios();
+      this.applyFilters();
     }
   }
 
   openCreateModal(): void {
-    this.editingUsuario = null;
-    this.usuarioForm.reset({
+    this.modalTitle = 'Nuevo usuario';
+    this.editingId = null;
+    this.form.reset({
       nombre: '',
-      nombre_usuario: '',
+      apellido: '',
       email: '',
-      telefono: '',
-      contraseña: '',
-      es_admin: false
+      password: '',
+      numero_documento: '',
+      id_rol: this.rolesOptions[0]?.id ?? '',
+      id_tipo_documento: this.tipoDocumentoOptions[0]?.id ?? '',
+      id_sexo: '',
+      activo: true
     });
-    this.showModal = true;
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.modalOpen = true;
   }
 
-  editUsuario(usuario: Usuario): void {
-    this.editingUsuario = usuario;
-    this.usuarioForm.patchValue({
+  edit(usuario: Usuario): void {
+    this.modalTitle = 'Editar usuario';
+    this.editingId = usuario.id;
+    this.form.reset({
       nombre: usuario.nombre,
-      nombre_usuario: usuario.nombre_usuario,
+      apellido: usuario.apellido,
       email: usuario.email,
-      telefono: usuario.telefono || '',
-      contraseña: '',
-      es_admin: usuario.es_admin
+      password: '',
+      numero_documento: usuario.numero_documento,
+      id_rol: usuario.id_rol,
+      id_tipo_documento: usuario.id_tipo_documento,
+      id_sexo: usuario.id_sexo ?? '',
+      activo: usuario.activo ?? true
     });
-    this.showModal = true;
+    this.modalOpen = true;
   }
 
   closeModal(): void {
-    this.showModal = false;
-    this.editingUsuario = null;
-    this.usuarioForm.reset();
+    this.modalOpen = false;
+    this.editingId = null;
   }
 
-  saveUsuario(): void {
-    if (this.usuarioForm.invalid) {
-      this.usuarioForm.markAllAsTouched();
+  toggleModal(event: MouseEvent): void {
+    event.stopPropagation();
+  }
+
+  save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    if (!this.editingUsuario && !this.usuarioForm.get('contraseña')?.value) {
-      alert('La contraseña es requerida para nuevos usuarios');
+    const formValue = this.form.value;
+    const payload: Partial<UsuarioCreate & UsuarioUpdate> = {
+      nombre: formValue.nombre ?? '',
+      apellido: formValue.apellido ?? '',
+      email: formValue.email ?? '',
+      numero_documento: formValue.numero_documento ?? '',
+      id_rol: formValue.id_rol ?? '',
+      id_tipo_documento: formValue.id_tipo_documento ?? '',
+      id_sexo: formValue.id_sexo ? formValue.id_sexo : null,
+      activo: formValue.activo ?? true
+    };
+
+    if (!this.editingId) {
+      if (!formValue.password) {
+        this.form.get('password')?.setErrors({ required: true });
+        this.form.markAllAsTouched();
+        return;
+      }
+      (payload as UsuarioCreate).password = formValue.password;
+    } else if (formValue.password) {
+      (payload as UsuarioUpdate).password = formValue.password;
+    }
+
+    this.saving = true;
+    const request$ = this.editingId
+      ? this.http.put<Usuario>(`${this.apiUrl}/usuarios/${this.editingId}/`, payload)
+      : this.http.post<Usuario>(`${this.apiUrl}/usuarios/`, payload);
+
+    request$.subscribe({
+      next: () => {
+        this.saving = false;
+        this.modalOpen = false;
+        this.loadData();
+      },
+      error: err => {
+        this.errorMessage = this.editingId
+          ? 'Error al actualizar el usuario.'
+          : 'Error al crear el usuario.';
+        console.error(err);
+        this.saving = false;
+      }
+    });
+  }
+
+  remove(usuario: Usuario): void {
+    if (!confirm(`¿Eliminar al usuario ${usuario.email}?`)) {
       return;
     }
-
-    const formValue = this.usuarioForm.value;
-
-    if (this.editingUsuario) {
-      // Actualizar usuario existente
-      const updateData: UpdateUsuarioRequest = {
-        nombre: formValue.nombre,
-        nombre_usuario: formValue.nombre_usuario,
-        email: formValue.email,
-        telefono: formValue.telefono,
-        es_admin: formValue.es_admin
-      };
-      
-      this.usuarioService.updateUsuario(this.editingUsuario.id, updateData).subscribe({
-        next: () => {
-          this.loadUsuarios();
-          this.closeModal();
-        },
-        error: (error) => {
-          console.error('Error al actualizar usuario:', error);
-          alert('Error al actualizar el usuario');
-        }
-      });
-    } else {
-      // Crear nuevo usuario
-      const newUsuario: CreateUsuarioRequest = {
-        nombre: formValue.nombre,
-        nombre_usuario: formValue.nombre_usuario,
-        email: formValue.email,
-        telefono: formValue.telefono,
-        contraseña: formValue.contraseña,
-        password: formValue.contraseña, // Alias for frontend compatibility
-        apellido: formValue.apellido || '', // Add missing field
-        es_admin: formValue.es_admin
-      };
-      
-      this.usuarioService.createUsuario(newUsuario).subscribe({
-        next: () => {
-          this.loadUsuarios();
-          this.closeModal();
-        },
-        error: (error) => {
-          console.error('Error al crear usuario:', error);
-          alert('Error al crear el usuario');
-        }
-      });
-    }
+    this.saving = true;
+    const payload = {
+      activo: false,
+      id_usuario_edita: this.currentUserId ?? undefined
+    };
+    this.http.put(`${this.apiUrl}/usuarios/${usuario.id}/`, payload).subscribe({
+      next: () => {
+        this.saving = false;
+        this.loadData();
+      },
+      error: err => {
+        this.errorMessage = 'Error al eliminar el usuario.';
+        console.error(err);
+        this.saving = false;
+      }
+    });
   }
 
-  deleteUsuario(usuario: Usuario): void {
-    if (confirm(`¿Está seguro de eliminar el usuario "${usuario.email}"?`)) {
-      this.usuarioService.deleteUsuario(usuario.id).subscribe({
-        next: () => {
-          this.loadUsuarios();
-        },
-        error: (error) => {
-          console.error('Error al eliminar usuario:', error);
-          alert('Error al eliminar el usuario');
-        }
-      });
-    }
+  getRoleLabel(id: string): string {
+    return this.rolesOptions.find(option => option.id === id)?.label ?? id;
   }
 
-  desactivarUsuario(usuario: Usuario): void {
-    if (confirm(`¿Está seguro de desactivar el usuario "${usuario.email}"?`)) {
-      this.usuarioService.desactivarUsuario(usuario.id).subscribe({
-        next: () => {
-          this.loadUsuarios();
-        },
-        error: (error) => {
-          console.error('Error al desactivar usuario:', error);
-          alert('Error al desactivar el usuario');
-        }
-      });
-    }
+  getTipoDocumentoLabel(id: string): string {
+    return this.tipoDocumentoOptions.find(option => option.id === id)?.label ?? id;
+  }
+
+  getSexoLabel(id?: string | null): string {
+    if (!id) return 'Sin definir';
+    return this.sexoOptions.find(option => option.id === id)?.label ?? id;
   }
 }

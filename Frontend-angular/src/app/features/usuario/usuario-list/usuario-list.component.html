@@ -1,134 +1,156 @@
-<div class="usuario-list">
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Gestión de Usuarios</h2>
-      <button class="btn btn-success" (click)="openCreateModal()">Nuevo Usuario</button>
-    </div>
-    <div class="card-body">
-      <!-- Filtros -->
-      <div class="filters mb-3">
-        <div class="row">
-          <div class="col-md-3">
-            <input type="text" class="form-control" placeholder="Buscar por email..." [(ngModel)]="filters.email" (input)="onFilterChange()" />
-          </div>
-          <div class="col-md-3">
-            <input type="text" class="form-control" placeholder="Buscar por nombre..." [(ngModel)]="filters.nombre" (input)="onFilterChange()" />
-          </div>
-          <div class="col-md-2">
-            <select class="form-control" [(ngModel)]="filters.activo" (change)="onFilterChange()">
-              <option value="">Todos los estados</option>
+<div class="management">
+  <section class="card">
+    <header class="card__header">
+      <div class="card__titles">
+        <h1>Usuarios</h1>
+        <p>Gestiona cuentas, estados y roles del sistema.</p>
+      </div>
+      <button type="button" class="btn btn--primary" (click)="openCreateModal()">Nuevo usuario</button>
+    </header>
+
+    <div class="card__body">
+      <section class="feature__filters">
+        <div class="filters__row">
+          <label>
+            <span>Nombre</span>
+            <input [(ngModel)]="filters.nombre" (input)="onFilterChange()" placeholder="Buscar por nombre" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input [(ngModel)]="filters.email" (input)="onFilterChange()" placeholder="Buscar por email" />
+          </label>
+          <label>
+            <span>Estado</span>
+            <select [(ngModel)]="filters.activo" (change)="onFilterChange()">
+              <option value="">Todos</option>
               <option value="true">Activos</option>
               <option value="false">Inactivos</option>
             </select>
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-secondary" (click)="clearFilters()">Limpiar</button>
-          </div>
+          </label>
+          <button type="button" class="btn btn--ghost" (click)="clearFilters()">Limpiar</button>
         </div>
-      </div>
-      <!-- Tabla de usuarios -->
-      <div class="table-responsive">
-        <table class="table">
+      </section>
+
+      <p *ngIf="errorMessage" class="feature__state feature__state--error">{{ errorMessage }}</p>
+      <p *ngIf="loading" class="feature__state">Cargando usuarios...</p>
+
+      <div class="table-wrapper" *ngIf="usuarios.length">
+        <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Tipo Doc</th>
-              <th># Documento</th>
               <th>Nombre</th>
-              <th>Apellido</th>
               <th>Email</th>
+              <th>Documento</th>
               <th>Rol</th>
-              <th>Género</th>
-              <th>Estado</th>
-              <th>Creación</th>
-              <th>Edición</th>
-              <th>Acciones</th>
+              <th>Documento</th>
+              <th>Sexo</th>
+              <th>Activo</th>
+              <th class="text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngIf="loading">
-              <td colspan="12" class="text-center">Cargando...</td>
-            </tr>
-            <tr *ngIf="!loading && usuarios.length === 0">
-              <td colspan="12" class="text-center">No hay usuarios disponibles</td>
-            </tr>
             <tr *ngFor="let usuario of usuarios">
-              <td>{{ usuario.id }}</td>
-              <td>{{ usuario.tipo_documento || usuario.id_tipo_documento || '-' }}</td>
-              <td>{{ usuario.numero_documento || '-' }}</td>
-              <td>{{ usuario.nombre }}</td>
-              <td>{{ usuario.apellido || '-' }}</td>
+              <td>{{ usuario.nombre }} {{ usuario.apellido }}</td>
               <td>{{ usuario.email }}</td>
-              <td>{{ usuario.rol || (usuario.es_admin ? 'Admin' : 'Usuario') }}</td>
-              <td>{{ usuario.genero || '-' }}</td>
+              <td>{{ usuario.numero_documento }}</td>
+              <td>{{ getRoleLabel(usuario.id_rol) }}</td>
+              <td>{{ getTipoDocumentoLabel(usuario.id_tipo_documento) }}</td>
+              <td>{{ getSexoLabel(usuario.id_sexo) }}</td>
               <td>
-                <span class="badge" [class.badge-success]="usuario.activo" [class.badge-danger]="!usuario.activo">{{ usuario.activo ? 'Activo' : 'Inactivo' }}</span>
+                <span class="badge" [class.badge--success]="usuario.activo !== false" [class.badge--danger]="usuario.activo === false">
+                  {{ usuario.activo !== false ? 'Sí' : 'No' }}
+                </span>
               </td>
-              <td>{{ usuario.fecha_creacion | date:'short' }}</td>
-              <td>{{ usuario.fecha_edicion | date:'short' }}</td>
-              <td>
-                <button class="btn btn-sm btn-primary me-1" (click)="editUsuario(usuario)">Editar</button>
-                <button class="btn btn-sm btn-warning me-1" *ngIf="usuario.activo" (click)="desactivarUsuario(usuario)">Desactivar</button>
-                <button class="btn btn-sm btn-danger" (click)="deleteUsuario(usuario)">Eliminar</button>
+              <td class="table-actions">
+                <button type="button" class="btn btn--ghost" (click)="edit(usuario)">Editar</button>
+                <button type="button" class="btn btn--danger" (click)="remove(usuario)" [disabled]="saving">Eliminar</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <!-- Paginación -->
-      <div class="pagination mt-3" *ngIf="totalPages > 1">
-        <button class="btn btn-secondary" [disabled]="currentPage === 1" (click)="goToPage(currentPage - 1)">Anterior</button>
-        <span class="mx-3">Página {{ currentPage }} de {{ totalPages }}</span>
-        <button class="btn btn-secondary" [disabled]="currentPage === totalPages" (click)="goToPage(currentPage + 1)">Siguiente</button>
+
+      <p *ngIf="!loading && !usuarios.length" class="feature__state">No hay usuarios registrados.</p>
+
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">Siguiente</button>
       </div>
     </div>
-  </div>
-  <!-- Modal para crear/editar usuario -->
-  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">{{ editingUsuario ? 'Editar Usuario' : 'Nuevo Usuario' }}</h5>
-          <button type="button" class="close" (click)="closeModal()"><span>&times;</span></button>
-        </div>
-        <div class="modal-body">
-          <form [formGroup]="usuarioForm" (ngSubmit)="saveUsuario()">
-            <div class="form-group mb-3">
-              <label for="nombre">Nombre *</label>
-              <input type="text" class="form-control" id="nombre" formControlName="nombre" placeholder="Ingrese el nombre" />
-              <div *ngIf="usuarioForm.get('nombre')?.invalid && usuarioForm.get('nombre')?.touched" class="text-danger">El nombre es requerido y debe tener al menos 2 caracteres</div>
-            </div>
-            <div class="form-group mb-3">
-              <label for="nombre_usuario">Nombre de Usuario *</label>
-              <input type="text" class="form-control" id="nombre_usuario" formControlName="nombre_usuario" placeholder="Ingrese el nombre de usuario" />
-            </div>
-            <div class="form-group mb-3">
-              <label for="email">Email *</label>
-              <input type="email" class="form-control" id="email" formControlName="email" placeholder="Ingrese el email del usuario" />
-              <div *ngIf="usuarioForm.get('email')?.invalid && usuarioForm.get('email')?.touched" class="text-danger">Ingrese un email válido</div>
-            </div>
-            <div class="form-group mb-3">
-              <label for="telefono">Teléfono</label>
-              <input type="text" class="form-control" id="telefono" formControlName="telefono" placeholder="Ingrese el teléfono (opcional)" />
-            </div>
-            <div class="form-group mb-3" *ngIf="!editingUsuario">
-              <label for="contraseña">Contraseña *</label>
-              <input type="password" class="form-control" id="contraseña" formControlName="contraseña" placeholder="Ingrese la contraseña" />
-              <div *ngIf="usuarioForm.get('contraseña')?.invalid && usuarioForm.get('contraseña')?.touched" class="text-danger">La contraseña es requerida para nuevos usuarios</div>
-            </div>
-            <div class="form-group mb-3">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="es_admin" formControlName="es_admin" />
-                <label class="form-check-label" for="es_admin">Usuario Administrador</label>
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-          <button type="button" class="btn btn-primary" (click)="saveUsuario()">{{ editingUsuario ? 'Actualizar' : 'Crear' }}</button>
-        </div>
+  </section>
+</div>
+
+<div class="modal" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal__dialog" (click)="toggleModal($event)">
+    <header class="modal__header">
+      <h2>{{ modalTitle }}</h2>
+      <button type="button" class="modal__close" (click)="closeModal()">×</button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="save()" class="modal__form">
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Nombre *</span>
+          <input formControlName="nombre" type="text" />
+        </label>
+        <label class="form-field">
+          <span>Apellido *</span>
+          <input formControlName="apellido" type="text" />
+        </label>
       </div>
-    </div>
+
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Email *</span>
+          <input formControlName="email" type="email" />
+        </label>
+        <label class="form-field">
+          <span>Documento *</span>
+          <input formControlName="numero_documento" type="text" />
+        </label>
+      </div>
+
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Rol *</span>
+          <select formControlName="id_rol" type="select">
+            <option *ngFor="let rol of rolesOptions" [value]="rol.id">{{ rol.label }}</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Tipo documento *</span>
+          <select formControlName="id_tipo_documento">
+            <option *ngFor="let tipo of tipoDocumentoOptions" [value]="tipo.id">{{ tipo.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Sexo</span>
+          <select formControlName="id_sexo">
+            <option value="">Sin definir</option>
+            <option *ngFor="let sexo of sexoOptions" [value]="sexo.id">{{ sexo.label }}</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Contraseña <small *ngIf="editingId">(opcional)</small></span>
+          <input formControlName="password" type="password" />
+        </label>
+      </div>
+
+      <label class="checkbox">
+        <input type="checkbox" formControlName="activo" />
+        <span>Usuario activo</span>
+      </label>
+
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving">
+          {{ editingId ? 'Actualizar' : 'Crear' }}
+        </button>
+      </footer>
+    </form>
   </div>
 </div>
