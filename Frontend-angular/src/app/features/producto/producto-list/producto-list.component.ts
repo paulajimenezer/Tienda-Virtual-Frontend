@@ -1,218 +1,299 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { PaginationParams } from '../../../core/models/api-response.model';
-import { ProductoService } from '../../../core/services/producto.service';
-import { Producto, ProductoFilters } from '../../../shared/models/producto.model';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, inject } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { forkJoin } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
+import { Categoria } from '../../../shared/models/categoria.model';
+import { Producto, ProductoCreate, ProductoUpdate } from '../../../shared/models/producto.model';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-producto-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './producto-list.component.html',
-  styleUrl: './producto-list.component.scss'
+  styleUrls: ['./producto-list.component.scss']
 })
 export class ProductoListComponent implements OnInit {
+  private readonly http = inject(HttpClient);
+  private readonly fb = inject(FormBuilder);
+  private readonly apiUrl = environment.apiUrl;
+  private readonly authService = inject(AuthService);
+
   productos: Producto[] = [];
+  private allProductos: Producto[] = [];
+  private filteredProductos: Producto[] = [];
+  categorias: Categoria[] = [];
+  private categoriaNombreMap = new Map<string, string>();
+
   loading = false;
-  currentPage = 1;
-  totalPages = 1;
-  pageSize = 10;
-  
-  filters: ProductoFilters = {};
-  
-  // Modal properties
-  showModal = false;
-  editingProducto: Producto | null = null;
-  productoForm = {
+  saving = false;
+  editingId: string | null = null;
+  errorMessage = '';
+  modalOpen = false;
+  modalTitle = 'Nuevo producto';
+
+  isAdmin = false;
+  private currentUserId: string | null = null;
+
+  filters = {
     nombre: '',
-    descripcion: '',
-    precio: 0,
-    stock: 0,
-    categoria_id: '',
-    usuario_id: '',
-    activo: true
+    categoria: '',
+    activo: '',
+    precioMin: '',
+    precioMax: ''
   };
 
-  constructor(private productoService: ProductoService) { }
+  currentPage = 1;
+  pageSize = 10;
+  totalPages = 1;
+
+  readonly form = this.fb.group({
+    nombre: ['', [Validators.required, Validators.minLength(3)]],
+    descripcion: [''],
+    precio: [0, [Validators.required, Validators.min(0)]],
+    stock: [0, [Validators.required, Validators.min(0)]],
+    categoria_id: ['', Validators.required],
+    usuario_id: ['', Validators.required],
+    activo: [true]
+  });
 
   ngOnInit(): void {
-    this.loadProductos();
+    const currentUser = this.authService.getCurrentUser();
+    this.currentUserId = currentUser?.id ?? null;
+    this.isAdmin = this.authService.isAdmin();
+    if (!this.isAdmin) {
+      this.form.patchValue({ usuario_id: this.currentUserId ?? '' });
+    }
+    this.loadData();
   }
 
-  loadProductos(): void {
+  loadData(): void {
     this.loading = true;
-    const pagination: PaginationParams = {
-      page: this.currentPage,
-      limit: this.pageSize
-    };
+    this.errorMessage = '';
+    const productosEndpoint = this.isAdmin || !this.currentUserId
+      ? `${this.apiUrl}/productos/`
+      : `${this.apiUrl}/productos/usuario/${this.currentUserId}/`;
 
-    this.productoService.getProductos(pagination, this.filters).subscribe({
-      next: (productos) => {
-        this.productos = productos;
-        // Since backend doesn't provide pagination info, we'll set a default
-        this.totalPages = Math.ceil(productos.length / this.pageSize);
+    forkJoin({
+      productos: this.http.get<Producto[]>(productosEndpoint),
+      categorias: this.http.get<Categoria[]>(`${this.apiUrl}/categorias/`)
+    }).subscribe({
+      next: ({ productos, categorias }) => {
+        this.categorias = categorias ?? [];
+        this.categoriaNombreMap = new Map(
+          this.categorias.map(categoria => [categoria.id, categoria.nombre])
+        );
+        this.allProductos = productos ?? [];
+        this.currentPage = 1;
+        this.applyFilters();
         this.loading = false;
       },
-      error: (error) => {
-        console.error('Error al cargar productos:', error);
-        // Si el backend no está disponible, usar datos mock
-        if (error.status === 0 || error.status === undefined) {
-          console.log('Backend no disponible, usando datos mock para productos');
-          this.productos = [{
-            id_producto: '1',
-            id: '1',
-            nombre: 'Laptop Dell Inspiron',
-            descripcion: 'Laptop para trabajo y entretenimiento',
-            precio: 2500000,
-            stock: 15,
-            categoria_id: '1',
-            usuario_id: '1',
-            activo: true,
-            categoria: {
-              nombre: 'Tecnología'
-            },
-            fecha_creacion: new Date().toISOString(),
-            fecha_edicion: new Date().toISOString()
-          }];
-          this.totalPages = 1;
-        }
+      error: err => {
+        this.errorMessage = 'No fue posible cargar los productos.';
+        console.error(err);
         this.loading = false;
       }
     });
   }
 
+  private applyFilters(): void {
+    const termNombre = this.filters.nombre.trim().toLowerCase();
+    const categoriaFiltro = this.filters.categoria;
+    const activoFiltro = this.filters.activo;
+    const precioMin = parseFloat(this.filters.precioMin);
+    const precioMax = parseFloat(this.filters.precioMax);
+
+    this.filteredProductos = this.allProductos.filter(producto => {
+      const matchesNombre = !termNombre || (producto.nombre ?? '').toLowerCase().includes(termNombre);
+      const categoriaId = this.resolveCategoriaId(producto);
+      const matchesCategoria = !categoriaFiltro || categoriaId === categoriaFiltro;
+      const matchesActivo =
+        activoFiltro === '' ||
+        (activoFiltro === 'true' && producto.activo !== false) ||
+        (activoFiltro === 'false' && producto.activo === false);
+      const precio = Number(producto.precio ?? 0);
+      const matchesPrecioMin = Number.isNaN(precioMin) || precio >= precioMin;
+      const matchesPrecioMax = Number.isNaN(precioMax) || precio <= precioMax;
+      return matchesNombre && matchesCategoria && matchesActivo && matchesPrecioMin && matchesPrecioMax;
+    });
+
+    this.totalPages = Math.max(1, Math.ceil(this.filteredProductos.length / this.pageSize));
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
+    const start = (this.currentPage - 1) * this.pageSize;
+    this.productos = this.filteredProductos.slice(start, start + this.pageSize);
+  }
+
   onFilterChange(): void {
     this.currentPage = 1;
-    this.loadProductos();
+    this.applyFilters();
   }
 
   clearFilters(): void {
-    this.filters = {};
-    this.currentPage = 1;
-    this.loadProductos();
+    this.filters = { nombre: '', categoria: '', activo: '', precioMin: '', precioMax: '' };
+    this.onFilterChange();
   }
 
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      this.loadProductos();
+      this.applyFilters();
     }
+  }
+
+  resetForm(): void {
+    this.form.reset({
+      nombre: '',
+      descripcion: '',
+      precio: 0,
+      stock: 0,
+      categoria_id: this.categorias[0]?.id ?? '',
+      usuario_id: this.isAdmin ? '' : this.currentUserId ?? '',
+      activo: true
+    });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
   }
 
   openCreateModal(): void {
-    this.editingProducto = null;
-    this.productoForm = {
-      nombre: '',
-      descripcion: '',
-      precio: 0,
-      stock: 0,
-      categoria_id: '',
-      usuario_id: '',
-      activo: true
-    };
-    this.showModal = true;
+    this.editingId = null;
+    this.modalTitle = 'Nuevo producto';
+    this.resetForm();
+    this.modalOpen = true;
   }
 
-  editProducto(producto: Producto): void {
-    this.editingProducto = producto;
-    this.productoForm = {
+  edit(producto: Producto): void {
+    this.editingId = producto.id;
+    this.modalTitle = 'Editar producto';
+    this.form.patchValue({
       nombre: producto.nombre,
-      descripcion: producto.descripcion || '',
+      descripcion: producto.descripcion,
       precio: producto.precio,
       stock: producto.stock,
-      categoria_id: producto.categoria_id,
-      usuario_id: producto.usuario_id,
-      activo: producto.activo
-    };
-    this.showModal = true;
+      categoria_id: this.resolveCategoriaId(producto),
+      usuario_id: (producto as unknown as { usuario_id?: string; id_usuario?: string }).usuario_id
+        ?? (producto as unknown as { usuario_id?: string; id_usuario?: string }).id_usuario
+        ?? this.currentUserId
+        ?? '',
+      activo: producto.activo ?? true
+    });
+    this.modalOpen = true;
   }
 
   closeModal(): void {
-    this.showModal = false;
-    this.editingProducto = null;
-    this.productoForm = {
-      nombre: '',
-      descripcion: '',
-      precio: 0,
-      stock: 0,
-      categoria_id: '',
-      usuario_id: '',
-      activo: true
-    };
+    this.modalOpen = false;
+    this.editingId = null;
+    this.resetForm();
   }
 
-  saveProducto(): void {
-    if (!this.productoForm.nombre.trim() || this.productoForm.precio <= 0 || this.productoForm.stock < 0 || !this.productoForm.categoria_id || !this.productoForm.usuario_id) {
-      alert('Nombre, precio, stock, categoría y usuario son requeridos');
+  save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    if (this.editingProducto) {
-      // Actualizar producto existente
-      const updateData = {
-        nombre: this.productoForm.nombre,
-        descripcion: this.productoForm.descripcion,
-        precio: this.productoForm.precio,
-        stock: this.productoForm.stock,
-        categoria_id: this.productoForm.categoria_id,
-        usuario_id: this.productoForm.usuario_id,
-        activo: this.productoForm.activo
+    this.saving = true;
+    this.errorMessage = '';
+
+  const { nombre, descripcion, precio, stock, categoria_id, usuario_id, activo } = this.form.value;
+  const nombreValor = (nombre ?? '').toString().trim();
+  const descripcionValor = (descripcion ?? '').toString().trim();
+  const categoriaId = (categoria_id ?? '').toString().trim();
+  const usuarioIdFromForm = (usuario_id ?? '').toString().trim();
+  const usuarioId = usuarioIdFromForm || (this.currentUserId ?? '');
+    const precioValor = precio == null ? NaN : Number(precio);
+    const stockValor = stock == null ? NaN : Number(stock);
+
+    if (!nombreValor || Number.isNaN(precioValor) || Number.isNaN(stockValor) || !categoriaId || !usuarioId) {
+      this.form.markAllAsTouched();
+      this.saving = false;
+      return;
+    }
+
+    const basePayload = {
+      nombre: nombreValor,
+      descripcion: descripcionValor,
+      precio: precioValor,
+      stock: stockValor,
+      categoria_id: categoriaId
+    };
+
+    if (this.editingId) {
+      const payload: ProductoUpdate = {
+        ...basePayload,
+        usuario_id: this.isAdmin ? usuarioId : undefined,
+        activo: typeof activo === 'boolean' ? activo : undefined,
+        id_usuario_edita: this.currentUserId ?? undefined
       };
-      
-      this.productoService.updateProducto(this.editingProducto.id, updateData).subscribe({
+      this.http.put<Producto>(`${this.apiUrl}/productos/${this.editingId}/`, payload).subscribe({
         next: () => {
-          this.loadProductos();
+          this.loadData();
           this.closeModal();
+          this.saving = false;
         },
-        error: (error) => {
-          console.error('Error al actualizar producto:', error);
-          alert('Error al actualizar el producto');
+        error: err => {
+          this.errorMessage = 'Error al actualizar el producto.';
+          console.error(err);
+          this.saving = false;
         }
       });
     } else {
-      // Crear nuevo producto
-      const newProducto = {
-        nombre: this.productoForm.nombre,
-        descripcion: this.productoForm.descripcion,
-        precio: this.productoForm.precio,
-        stock: this.productoForm.stock,
-        categoria_id: this.productoForm.categoria_id,
-        usuario_id: this.productoForm.usuario_id,
-        activo: this.productoForm.activo
+      const payload: ProductoCreate = {
+        ...basePayload,
+        usuario_id: usuarioId
       };
-      
-      this.productoService.createProducto(newProducto).subscribe({
+      this.http.post<Producto>(`${this.apiUrl}/productos/`, payload).subscribe({
         next: () => {
-          this.loadProductos();
+          this.loadData();
           this.closeModal();
+          this.saving = false;
         },
-        error: (error) => {
-          console.error('Error al crear producto:', error);
-          alert('Error al crear el producto');
+        error: err => {
+          this.errorMessage = 'Error al crear el producto.';
+          console.error(err);
+          this.saving = false;
         }
       });
     }
   }
 
-  deleteProducto(producto: Producto): void {
-    if (confirm(`¿Está seguro de eliminar el producto "${producto.nombre}"?`)) {
-      this.productoService.deleteProducto(producto.id).subscribe({
-        next: () => {
-          this.loadProductos();
-        },
-        error: (error) => {
-          console.error('Error al eliminar producto:', error);
-        }
-      });
+  remove(producto: Producto): void {
+    if (!confirm(`¿Eliminar el producto ${producto.nombre}?`)) {
+      return;
     }
+    this.saving = true;
+    const payload = {
+      activo: false,
+      id_usuario_edita: this.currentUserId ?? undefined
+    };
+    this.http.put(`${this.apiUrl}/productos/${producto.id}/`, payload).subscribe({
+      next: () => {
+        this.loadData();
+        if (this.editingId === producto.id) {
+          this.closeModal();
+        }
+        this.saving = false;
+      },
+      error: err => {
+        this.errorMessage = 'Error al eliminar el producto.';
+        console.error(err);
+        this.saving = false;
+      }
+    });
   }
 
-  formatearPrecio(precio: number): string {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(precio);
+  getCategoriaNombre(producto: Producto): string {
+    const categoriaId = this.resolveCategoriaId(producto);
+    if (!categoriaId) {
+      return 'Sin categoría';
+    }
+    return this.categoriaNombreMap.get(categoriaId) ?? categoriaId;
+  }
+
+  private resolveCategoriaId(producto: Producto): string {
+    return (producto.categoria_id as string) || (producto as unknown as { id_categoria?: string }).id_categoria || '';
   }
 }
