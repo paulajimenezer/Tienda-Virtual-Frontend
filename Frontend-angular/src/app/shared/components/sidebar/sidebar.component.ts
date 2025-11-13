@@ -1,75 +1,64 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
-declare interface RouteInfo {
-  path?: string;
+// Estructuras simples para grupos y submenús
+interface MenuChild {
+  path: string;
   title: string;
   icon?: string;
-  class?: string;
   roles?: string[];
-  children?: RouteInfo[];
-  isSection?: boolean;
-  expanded?: boolean;
-  logout?: boolean; // para items de cierre de sesión
 }
 
-declare interface MenuSection {
+interface MenuGroup {
+  key: string; // usado para abrir/cerrar
   title: string;
-  children: RouteInfo[];
-  expanded?: boolean;
-  icon?: string; // icono para el menú padre
+  icon: string;
+  children: MenuChild[];
 }
 
-export const ROUTES: RouteInfo[] = [
-  { path: '/dashboard', title: 'Dashboard',  icon: 'design_app', class: '' },
-  { path: '/categorias', title: 'Categorías',  icon:'shopping_basket', class: '', roles: ['admin'] },
-  { path: '/usuarios', title: 'Usuarios',  icon:'users_single-02', class: '', roles: ['admin'] },
-  { path: '/productos', title: 'Productos',  icon:'shopping_box', class: '' },
-  { path: '/notifications', title: 'Notificaciones',  icon:'ui-1_bell-53', class: '', roles: ['admin'] },
-  { path: '/upgrade', title: 'Configuración',  icon:'objects_spaceship', class: 'active active-pro', roles: ['admin'] }
+const TOP_LINKS: MenuChild[] = [
+  { path: '/dashboard', title: 'Dashboard', icon: 'design_app' }
 ];
 
-// Secciones solicitadas con submenús
-const MENU_SECTIONS: MenuSection[] = [
+const GROUPS: MenuGroup[] = [
   {
+    key: 'usuarios',
     title: 'Usuarios',
+    icon: 'users_single-02',
     children: [
-      { path: '/usuarios', title: 'Usuarios', icon: 'ui-1_bell-53', class: '', roles: ['admin'] },
-    ],
-    expanded: false,
-    icon: 'shopping_box' 
+      { path: '/usuarios', title: 'Usuarios', icon: 'users_single-02', roles: ['admin'] }
+    ]
   },
   {
+    key: 'productos',
     title: 'Productos',
+    icon: 'shopping_box',
     children: [
-      { path: '/categorias', title: 'Categorías', icon: 'ui-1_bell-53', class: '' },
-      { path: '/productos', title: 'Productos', icon: 'ui-1_bell-53', class: '' }
-    ],
-    expanded: false,
-    icon: 'shopping_box' 
+      { path: '/productos', title: 'Productos', icon: 'shopping_box', roles: ['admin', 'cliente'] },
+      { path: '/categorias', title: 'Categorías', icon: 'design_app', roles: ['admin'] }
+    ]
   },
   {
-    title: 'Facturación',
+    key: 'compras',
+    title: 'Compras',
+    icon: 'shopping_box',
     children: [
-      { path: '/facturas', title: 'Facturas', icon: 'ui-1_bell-53', class: '' },
-      { path: '/descuentos', title: 'Descuentos', icon: 'ui-1_bell-53', class: '' }
-    ],
-    expanded: false,
-    icon: 'shopping_box' 
+      { path: '/carritos', title: 'Carritos', icon: 'shopping_box', roles: ['admin', 'cliente'] },
+      { path: '/descuentos', title: 'Descuentos', icon: 'design_app', roles: ['admin'] }
+    ]
   },
   {
-    title: 'Carritos y Pedidos',
+    key: 'pedidos',
+    title: 'Pedidos',
+    icon: 'users_single-02',
     children: [
-      { path: '/carritos', title: 'Carritos', icon: 'ui-1_bell-53', class: '' },
-      { path: '/item-carrito', title: 'Ítems del carrito', icon: 'ui-1_bell-53', class: '' },
-      { path: '/pedidos', title: 'Pedidos', icon: 'ui-1_bell-53', class: '' },
-      { path: '/item-pedido', title: 'Ítems del pedido', icon: 'ui-1_bell-53', class: '' }
-    ],
-    expanded: false,
-    icon: 'shopping_box' 
-  },
+      { path: '/pedidos', title: 'Pedidos', icon: 'users_single-02', roles: ['admin'] },
+      { path: '/facturas', title: 'Facturas', icon: 'shopping_box', roles: ['admin', 'cliente'] }
+    ]
+  }
 ];
 
 @Component({
@@ -80,8 +69,10 @@ const MENU_SECTIONS: MenuSection[] = [
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent implements OnInit {
-  menuItems: RouteInfo[] = [];
-  sections: MenuSection[] = []; // nuevas secciones
+  topLinks: MenuChild[] = [];
+  menuGroups: MenuGroup[] = [];
+  openKey: string | null = null; // solo un grupo abierto a la vez
+  private authSub?: Subscription;
 
   constructor(
     public authService: AuthService,
@@ -89,37 +80,40 @@ export class SidebarComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    // Filtrar elementos del menú según permisos
-    this.menuItems = ROUTES.filter(menuItem => this.canAccessMenuItem(menuItem));
+    this.rebuildMenu();
+    // Suscribir a cambios de sesión para actualizar accesos
+    this.authSub = this.authService.currentUser$.subscribe(() => {
+      this.rebuildMenu();
+    });
+  }
 
-    // Construir secciones con filtro de permisos y colapsadas por defecto
-    this.sections = MENU_SECTIONS
-      .map(sec => ({
-        ...sec,
-        children: sec.children.filter(child => this.canAccessMenuItem(child)),
-        expanded: false
+  ngOnDestroy(): void {
+    this.authSub?.unsubscribe();
+  }
+
+  private rebuildMenu(): void {
+    // Enlaces sueltos (p. ej. Dashboard)
+    this.topLinks = TOP_LINKS.filter(link => this.canAccessChild(link));
+    // Grupos con al menos un hijo accesible
+    this.menuGroups = GROUPS
+      .map(g => ({
+        ...g,
+        children: g.children.filter(c => this.canAccessChild(c))
       }))
-      .filter(sec => sec.children.length > 0);
+      .filter(g => g.children.length > 0);
+    // Si el grupo abierto dejó de existir (por permisos), cerrarlo
+    if (this.openKey && !this.menuGroups.find(g => g.key === this.openKey)) {
+      this.openKey = null;
+    }
   }
 
-  toggleSection(index: number): void {
-    // Acordeón: al abrir uno, se cierran los otros
-    this.sections = this.sections.map((sec, i) => ({
-      ...sec,
-      expanded: i === index ? !sec.expanded : false
-    }));
+  private canAccessChild(child: MenuChild): boolean {
+    // Mantener lógica simple: delegar en AuthService
+    return this.authService.canAccess(child.path);
   }
 
-  canAccessMenuItem(menuItem: RouteInfo): boolean {
-    if (menuItem.children && menuItem.children.length) {
-      return menuItem.children.some(child => this.canAccessMenuItem(child));
-    }
-    //Si no tiene roles definidos, todos pueden acceder
-    if (!menuItem.roles || menuItem.roles.length === 0) {
-      return true;
-    }
-    const userRole = this.authService.getUserRole();
-    return userRole ? menuItem.roles.includes(userRole) : false;
+  toggleGroup(key: string): void {
+    this.openKey = this.openKey === key ? null : key;
   }
   
   isMobileMenu() {
@@ -132,15 +126,5 @@ export class SidebarComponent implements OnInit {
   logout() {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
-  }
-
-  onMenuItemClick(item: RouteInfo) {
-    if (item.logout) {
-      this.logout();
-      return;
-    }
-    if (item.path) {
-      this.router.navigate([item.path]);
-    }
   }
 }

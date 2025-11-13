@@ -1,40 +1,55 @@
-<div class="logo">
-    <a href="#" class="simple-text logo-mini">
-        <div class="logo-img">
-            <div class="logo-text">PH</div>
-        </div>
-    </a>
-    <a href="#" class="simple-text logo-normal">
-        Euphoria
+<div class="brand">
+    <a class="brand-link" [routerLink]="['/dashboard']" aria-label="Ir al panel principal">
+        <span class="brand-mark">🛒</span>
+        <span class="brand-meta">
+            <span class="brand-name">Tienda Virtual</span>
+            <span class="brand-tagline">Administración</span>
+        </span>
     </a>
 </div>
 <div class="sidebar-wrapper">
-    <ul class="nav">
-        <!-- Secciones -->
-        <ng-container *ngFor="let section of sections; let i = index">
-            <li class="nav-item section-title" (click)="toggleSection(i)">
-                <p>
-                  <span class="section-left">
-                    <i class="now-ui-icons {{section.icon || 'shopping_box'}}"></i>
-                    {{ section.title }}
-                  </span>
-                  <span class="caret">{{ section.expanded ? '▾' : '▸' }}</span>
-                </p>
-            </li>
-            <ul class="submenu" *ngIf="section.expanded">
-                <li routerLinkActive="active" *ngFor="let item of section.children" class="{{item.class}} nav-item">
-                    <!-- Item normal -->
-                    <a *ngIf="!item.logout" [routerLink]="[item.path]">
-                        <i class="now-ui-icons {{item.icon}}" *ngIf="item.icon"></i>
-                        <p>{{item.title}}</p>
-                    </a>
-                    <!-- Item logout -->
-                    <a *ngIf="item.logout" (click)="onMenuItemClick(item)">
-                        <i class="now-ui-icons {{item.icon}}" *ngIf="item.icon"></i>
-                        <p>{{item.title}}</p>
+    <!-- Enlaces principales simples (ej: Dashboard) -->
+    <ul class="nav top-links">
+        <li *ngFor="let top of topLinks" routerLinkActive="active" class="nav-item">
+            <a class="menu-button" [routerLink]="[top.path]">
+                <i class="now-ui-icons {{top.icon}}"></i>
+                <p>{{ top.title }}</p>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Grupos con submenús -->
+    <ul class="nav groups">
+        <li *ngFor="let g of menuGroups" class="nav-item group-item" [class.open]="openKey === g.key">
+            <div class="group-header menu-button" (click)="toggleGroup(g.key)" [attr.aria-expanded]="openKey === g.key">
+                <i class="now-ui-icons {{g.icon}}"></i>
+                <p>{{ g.title }}</p>
+                <span class="arrow" [class.rotated]="openKey === g.key">›</span>
+            </div>
+            <ul class="sub-menu" *ngIf="openKey === g.key">
+                <li *ngFor="let c of g.children" routerLinkActive="active" class="sub-item">
+                    <a class="sub-button" [routerLink]="[c.path]">
+                        <i class="now-ui-icons {{c.icon}}"></i>
+                        <span>{{ c.title }}</span>
                     </a>
                 </li>
             </ul>
-        </ng-container>
+        </li>
     </ul>
+
+    <!-- Información del usuario y logout -->
+    <div class="user-info" *ngIf="authService.getCurrentUser()">
+        <div class="user-details">
+            <div class="user-avatar">
+                <img src="assets/usuario_icon.png" alt="Foto de perfil del usuario" />
+            </div>
+            <div class="user-text">
+                <div class="user-name">{{ authService.getCurrentUser()?.nombre }}</div>
+                <div class="user-role">{{ authService.getCurrentUser()?.es_admin ? 'Administrador' : 'Usuario' }}</div>
+            </div>
+        </div>
+        <button class="logout-btn" (click)="logout()" title="Cerrar Sesión">
+            <span>✖︎</span>
+        </button>
+    </div>
 </div>

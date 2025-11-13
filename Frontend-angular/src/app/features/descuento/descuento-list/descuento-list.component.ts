@@ -1,216 +1,261 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-// import { PaginationParams } from '../../../core/models/api-response.model';
-// import { DescuentoService } from '../../../core/services/Descuento.service';
-// import { Descuento, DescuentoFilters } from '../../../shared/models/Descuento.model';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, inject } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AuthService } from '../../../core/services/auth.service';
+import { Descuento, DescuentoCreate, DescuentoUpdate } from '../../../shared/models/descuento.model';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-descuento-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   templateUrl: './descuento-list.component.html',
   styleUrls: ['./descuento-list.component.scss']
 })
-  export class DescuentoListComponent implements OnInit {
-  // Tipos comentados para evitar errores de compilación en ausencia de modelos reales
-  descuentos : any[] = [];
+export class DescuentoListComponent implements OnInit {
+  private readonly http = inject(HttpClient);
+  private readonly fb = inject(FormBuilder);
+  private readonly apiUrl = environment.apiUrl;
+  private readonly authService = inject(AuthService);
+
+  descuentos: Descuento[] = [];
+  private allDescuentos: Descuento[] = [];
+  private filteredDescuentos: Descuento[] = [];
+  private currentUserId: string | null = null;
   loading = false;
-  currentPage = 1;
-  totalPages = 1;
-  pageSize = 10;
-  
-  // filters: DescuentoFilters = {};
-  filters: any = {};
-  
-  // Modal properties
-  showModal = false;
-  // editingDescuento: Descuento | null = null;
-  editingDescuento: any | null = null;
-   descuentoForm = {
+  saving = false;
+  editingId: string | null = null;
+  errorMessage = '';
+  modalOpen = false;
+  modalTitle = 'Nuevo descuento';
+
+  isAdmin = false;
+
+  filters = {
     codigo: '',
-    porcentaje: '',
-    pedido: '',
-    estado: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    activa: '',
+    activo: '',
+    fecha: ''
   };
-  // constructor(private descuentoService: DescuentoService) { }
-  constructor() {}
+
+  currentPage = 1;
+  pageSize = 10;
+  totalPages = 1;
+
+  readonly form = this.fb.group({
+    codigo: ['', Validators.required],
+    porcentaje: [0, [Validators.required, Validators.min(0)]],
+    fecha_inicio: ['', Validators.required],
+    fecha_fin: ['', Validators.required],
+    activo: [true]
+  });
 
   ngOnInit(): void {
-    this.loadDescuentos();
-    // Cargar un único descuento de ejemplo como en categoría cuando no hay backend
-    if (!this.loading && this.descuentos.length === 0) {
-      this.descuentos = [{
-        id: '1',
-        nombre: 'Descuento Bienvenida',
-        descripcion: '10% en primera compra',
-        activo: true,
-        fecha_creacion: new Date().toISOString(),
-        fecha_edicion: new Date().toISOString()
-      }];
-      this.totalPages = 1;
-    }
+    this.isAdmin = this.authService.isAdmin();
+    this.currentUserId = this.authService.getCurrentUser()?.id ?? null;
+    this.loadData();
   }
 
-  loadDescuentos(): void {
+  loadData(): void {
     this.loading = true;
-    /*const pagination: PaginationParams = {
-      page: this.currentPage,
-      limit: this.pageSize
-    };
-
-    this.descuentoService.getDescuentos(pagination, this.filters).subscribe({
-      next: (descuentos) => {
-        this.descuentos = descuentos;
-        // Since backend doesn't provide pagination info, we'll set a default
-        this.totalPages = Math.ceil(descuentos.length / this.pageSize);
+    this.errorMessage = '';
+    this.http.get<Descuento[]>(`${this.apiUrl}/descuentos/`).subscribe({
+      next: data => {
+        this.allDescuentos = data ?? [];
+        this.currentPage = 1;
+        this.applyFilters();
         this.loading = false;
       },
-      error: (error) => {
-        console.error('Error al cargar descuentos:', error);
-        // Si el backend no está disponible, usar datos mock
+      error: err => {
+        this.errorMessage = 'No fue posible cargar los descuentos.';
+        console.error(err);
         this.loading = false;
       }
-    });*/
-    // Fallback visual (sin backend) similar a Categoría
-    if (this.descuentos.length === 0) {
-      this.descuentos = [{
-        id: '1',
-        nombre: 'Descuento Bienvenida',
-        descripcion: '10% en primera compra',
-        activo: true,
-        fecha_creacion: new Date().toISOString(),
-        fecha_edicion: new Date().toISOString()
-      }];
-      this.totalPages = 1;
-    } else {
-      this.totalPages = Math.max(1, Math.ceil(this.descuentos.length / this.pageSize));
+    });
+  }
+
+  private applyFilters(): void {
+    const termCodigo = this.filters.codigo.trim().toLowerCase();
+    const activoFiltro = this.filters.activo;
+    const fechaFiltro = this.parseDate(this.filters.fecha);
+
+    this.filteredDescuentos = this.allDescuentos.filter(descuento => {
+      const matchesCodigo = !termCodigo || (descuento.codigo ?? '').toLowerCase().includes(termCodigo);
+      const matchesActivo =
+        activoFiltro === '' ||
+        (activoFiltro === 'true' && descuento.activo) ||
+        (activoFiltro === 'false' && !descuento.activo);
+      const matchesFecha = !fechaFiltro || this.isDiscountValidOn(descuento, fechaFiltro);
+      return matchesCodigo && matchesActivo && matchesFecha;
+    });
+
+    this.totalPages = Math.max(1, Math.ceil(this.filteredDescuentos.length / this.pageSize));
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
     }
-    this.loading = false;
+    const start = (this.currentPage - 1) * this.pageSize;
+    this.descuentos = this.filteredDescuentos.slice(start, start + this.pageSize);
   }
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.loadDescuentos();
+    this.applyFilters();
   }
 
   clearFilters(): void {
-    this.filters = {};
-    this.currentPage = 1;
-    this.loadDescuentos();
+    this.filters = { codigo: '', activo: '', fecha: '' };
+    this.onFilterChange();
   }
 
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      this.loadDescuentos();
+      this.applyFilters();
     }
+  }
+
+  private parseDate(value?: string | null): Date | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private isDiscountValidOn(descuento: Descuento, date: Date): boolean {
+    const inicio = this.parseDate(descuento.fecha_inicio);
+    const fin = this.parseDate(descuento.fecha_fin);
+    const afterStart = !inicio || inicio <= date;
+    const beforeEnd = !fin || fin >= date;
+    return afterStart && beforeEnd;
+  }
+
+  resetForm(): void {
+    this.form.reset({
+      codigo: '',
+      porcentaje: 0,
+      fecha_inicio: '',
+      fecha_fin: '',
+      activo: true
+    });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
   }
 
   openCreateModal(): void {
-    this.editingDescuento = null;
-    this.descuentoForm = {
-      codigo: '',
-    porcentaje: '',
-    pedido: '',
-    estado: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    activa: ''
-    };
-    this.showModal = true;
+    this.editingId = null;
+    this.modalTitle = 'Nuevo descuento';
+    this.resetForm();
+    this.modalOpen = true;
   }
 
-  editDescuento(descuento: any): void {
-    this.editingDescuento = descuento;
-    this.descuentoForm = {
-    codigo: descuento.codigo,
-    porcentaje: descuento.porcentaje,
-    pedido: descuento.pedido,
-    estado: descuento.estado,
-    fecha_inicio: descuento.fecha_inicio || '',
-    fecha_fin: descuento.fecha_fin || '',
-    activa: descuento.activa,
-    };
-    this.showModal = true;
+  edit(descuento: Descuento): void {
+    this.editingId = descuento.id;
+    this.modalTitle = 'Editar descuento';
+    this.form.patchValue({
+      codigo: descuento.codigo,
+      porcentaje: descuento.porcentaje,
+      fecha_inicio: descuento.fecha_inicio ? descuento.fecha_inicio.substring(0, 10) : '',
+      fecha_fin: descuento.fecha_fin ? descuento.fecha_fin.substring(0, 10) : '',
+      activo: descuento.activo
+    });
+    this.modalOpen = true;
   }
 
   closeModal(): void {
-    this.showModal = false;
-    this.editingDescuento = null;
-    this.descuentoForm = {
-    codigo: '',
-    porcentaje: '',
-    pedido: '',
-    estado: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    activa: '',
-    };
+    this.modalOpen = false;
+    this.editingId = null;
+    this.resetForm();
   }
 
-  saveDescuento (): void {
-    if (!this.descuentoForm.codigo.trim()) {
-      alert('El codigo es requerido');
+  save(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    if (this.editingDescuento) {
-      // Actualizar descuento existente
-      const updateData = {
-        codigo: this.descuentoForm.  codigo,
-        porcentaje: this.descuentoForm.porcentaje,
-        fecha_inicio: this.descuentoForm.fecha_inicio,
-        fecha_fin: this.descuentoForm.fecha_fin,
-        activa: this.descuentoForm.activa
+    this.saving = true;
+    this.errorMessage = '';
+
+    const { codigo, porcentaje, fecha_inicio, fecha_fin, activo } = this.form.value;
+    const codigoValor = (codigo ?? '').toString().trim().toUpperCase();
+    const porcentajeValor = porcentaje == null ? NaN : Number(porcentaje);
+    const fechaInicioValor = (fecha_inicio ?? '').toString().trim();
+    const fechaFinValor = (fecha_fin ?? '').toString().trim();
+
+    if (!codigoValor || Number.isNaN(porcentajeValor) || !fechaInicioValor || !fechaFinValor) {
+      this.form.markAllAsTouched();
+      this.saving = false;
+      return;
+    }
+
+    const basePayload = {
+      codigo: codigoValor,
+      porcentaje: porcentajeValor,
+      fecha_inicio: fechaInicioValor,
+      fecha_fin: fechaFinValor,
+      activo: !!activo
+    };
+
+    if (this.editingId) {
+      const payload: DescuentoUpdate = {
+        ...basePayload,
+        id_usuario_edita: this.currentUserId ?? undefined
       };
-      
-      /*this.descuentoService.updateDescuento(this.editingDescuento.id, updateData).subscribe({
+      this.http.put<Descuento>(`${this.apiUrl}/descuentos/${this.editingId}/`, payload).subscribe({
         next: () => {
-          this.loadDescuentos();
+          this.loadData();
           this.closeModal();
+          this.saving = false;
         },
-        error: (error) => {
-          console.error('Error al actualizar descuento:', error);
-          alert('Error al actualizar descuento');
+        error: err => {
+          this.errorMessage = 'Error al actualizar el descuento.';
+          console.error(err);
+          this.saving = false;
         }
-      });*/
+      });
     } else {
-      // Crear nuevo descuento
-      const newDescuento = {
-        codigo: this.descuentoForm.  codigo,
-        porcentaje: this.descuentoForm.porcentaje,
-        fecha_inicio: this.descuentoForm.fecha_inicio,
-        fecha_fin: this.descuentoForm.fecha_fin,
-        activa: this.descuentoForm.activa
+      const payload: DescuentoCreate = {
+        ...basePayload,
+        id_usuario_crea: this.currentUserId ?? undefined
       };
-      
-      /*this.descuentoService.createDescuento(newDescuento).subscribe({
+      this.http.post<Descuento>(`${this.apiUrl}/descuentos/`, payload).subscribe({
         next: () => {
-          this.loadDescuentos();
+          this.loadData();
           this.closeModal();
+          this.saving = false;
         },
-        error: (error) => {
-          console.error('Error al crear descuento:', error);
-          alert('Error al crear descuento');
+        error: err => {
+          this.errorMessage = 'Error al crear el descuento.';
+          console.error(err);
+          this.saving = false;
         }
-      });*/
+      });
     }
   }
 
-  deleteDescuento(descuento: any): void {
-    /*if (confirm(`¿Está seguro de eliminar el descuento "${descuento.nombre}"?`)) {
-      this.descuentoService.deleteDescuento(descuento.id).subscribe({
-        next: () => {
-          this.loadDescuentos();
-        },
-        error: (error) => {
-          console.error('Error al eliminar descuento:', error);
+  remove(descuento: Descuento): void {
+    if (!confirm(`¿Eliminar el descuento ${descuento.codigo}?`)) {
+      return;
+    }
+    this.saving = true;
+    const payload = {
+      activo: false,
+      id_usuario_edita: this.currentUserId ?? undefined
+    };
+    this.http.put(`${this.apiUrl}/descuentos/${descuento.id}/`, payload).subscribe({
+      next: () => {
+        this.loadData();
+        if (this.editingId === descuento.id) {
+          this.closeModal();
         }
-      });
-    }*/
+        this.saving = false;
+      },
+      error: err => {
+        this.errorMessage = 'Error al eliminar el descuento.';
+        console.error(err);
+        this.saving = false;
+      }
+    });
   }
 }
