@@ -1,190 +1,154 @@
-<div class="carrito-list">
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Gestión de Carritos</h2>
-      <button class="btn btn-success" (click)="openCreateModal()">
-        Nuevo Carrito
-      </button>
-    </div>
-    
-    <div class="card-body">
-      <!-- Filtros -->
-      <div class="filters mb-3">
-        <div class="row">
-          <div class="col-md-4">
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Buscar por nombre..."
-              [(ngModel)]="filters.nombre"
-              (input)="onFilterChange()"
-            >
-          </div>
-          <div class="col-md-3">
-            <select 
-              class="form-control" 
-              [(ngModel)]="filters.activa"
-              (change)="onFilterChange()"
-            >
-              <option value="">Todos los estados</option>
-              <option value="true">Activas</option>
-              <option value="false">Inactivas</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-secondary" (click)="clearFilters()">
-              Limpiar
-            </button>
-          </div>
-        </div>
+<div class="management">
+  <section class="card">
+    <header class="card__header">
+      <div class="card__titles">
+        <h1>Carritos</h1>
+        <p>Control de carritos activos y cerrados por usuario.</p>
       </div>
+      <button type="button" class="btn btn--primary" (click)="openCreateModal()">Nuevo carrito</button>
+    </header>
 
-  <!-- Tabla de carritos -->
-      <div class="table-responsive">
-        <table class="table">
+    <div class="card__body">
+      <section class="feature__filters">
+        <div class="filters__row">
+          <label *ngIf="isAdmin">
+            <span>Usuario</span>
+            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Filtrar por usuario" />
+          </label>
+          <label>
+            <span>Estado</span>
+            <select [(ngModel)]="filters.estado" (change)="onFilterChange()">
+              <option value="">Todos</option>
+              <option *ngFor="let option of estadoOptions" [value]="option">{{ option || 'Sin estado' }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Activo</span>
+            <select [(ngModel)]="filters.activo" (change)="onFilterChange()">
+              <option value="">Todos</option>
+              <option value="true">Activos</option>
+              <option value="false">Inactivos</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn--ghost" (click)="clearFilters()">Limpiar</button>
+        </div>
+      </section>
+
+      <p *ngIf="errorMessage" class="feature__state feature__state--error">{{ errorMessage }}</p>
+      <p *ngIf="loading" class="feature__state">Cargando carritos...</p>
+
+      <div class="table-wrapper table-wrapper--fixed" *ngIf="carritos.length">
+        <table>
           <thead>
             <tr>
-              <th>ID</th>
+              <th></th>
+              <th>Identificador</th>
               <th>Usuario</th>
+              <th>Estado</th>
               <th>Activo</th>
-              <th>Fecha Creación</th>
-              <th>Fecha Edición</th>
-              <th>Acciones</th>
+              <th>Items</th>
+              <th>Actualizado</th>
+              <th class="text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngIf="loading">
-              <td colspan="6" class="text-center">Cargando...</td>
-            </tr>
-            <tr *ngIf="!loading && carritos.length === 0">
-              <td colspan="6" class="text-center">No hay carritos disponibles</td>
-            </tr>
-            <tr *ngFor="let carrito of carritos">
-              <td>{{ carrito.id }}</td>
-              <td>{{ carrito.usuario }}</td>
-              <td>
-                <span class="badge" [class.badge-success]="carrito.activo" [class.badge-danger]="!carrito.activo">
-                  {{ carrito.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-              </td>
-              <td>{{ carrito.fecha_creacion | date:'short' }}</td>
-              <td>{{ carrito.fecha_edicion | date:'short' }}</td>
-              <td>
-                <button class="btn btn-sm btn-primary" (click)="editCarrito(carrito)">
-                  Editar
-                </button>
-                <button class="btn btn-sm btn-danger" (click)="deleteCarrito(carrito)">
-                  Eliminar
-                </button>
-              </td>
-            </tr>
+            <ng-container *ngFor="let carrito of carritos">
+              <tr>
+                <td>
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="toggleCarritoItems(carrito.id)">
+                    {{ isCarritoExpanded(carrito.id) ? 'Ocultar' : 'Ver items' }}
+                  </button>
+                </td>
+                <td>{{ carrito.id }}</td>
+                <td>{{ carrito.usuario ? (carrito.usuario.nombre + ' ' + carrito.usuario.apellido) : carrito.id_usuario }}</td>
+                <td>{{ carrito.estado || 'Sin estado' }}</td>
+                <td>
+                  <span class="badge" [class.badge--success]="carrito.activo !== false" [class.badge--danger]="carrito.activo === false">
+                    {{ carrito.activo !== false ? 'Sí' : 'No' }}
+                  </span>
+                </td>
+                <td>{{ carrito.items?.length || 0 }}</td>
+                <td>{{ (carrito.fecha_actualizacion || carrito.fecha_creacion) | date:'short' }}</td>
+                <td class="table-actions">
+                  <ng-container *ngIf="isAdmin">
+                    <button type="button" class="btn btn--ghost" (click)="edit(carrito)">Editar</button>
+                    <button type="button" class="btn btn--danger" (click)="remove(carrito)" [disabled]="saving">Eliminar</button>
+                  </ng-container>
+                </td>
+              </tr>
+              <tr *ngIf="isCarritoExpanded(carrito.id)">
+                <td [attr.colspan]="8" class="p-0">
+                  <div class="nested-table-wrapper">
+                    <table class="nested-table">
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th class="text-right">Cantidad</th>
+                          <th class="text-right">Precio unitario</th>
+                          <th class="text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let item of carrito.items || []">
+                          <td>{{ getItemProductName(item) }}</td>
+                          <td class="text-right">{{ getItemQuantity(item) }}</td>
+                          <td class="text-right">{{ getItemUnitPrice(item) !== null ? (getItemUnitPrice(item) | number:'1.2-2') : '—' }}</td>
+                          <td class="text-right">{{ getItemSubtotal(item) !== null ? (getItemSubtotal(item) | number:'1.2-2') : '—' }}</td>
+                        </tr>
+                        <tr *ngIf="!(carrito.items && carrito.items.length)">
+                          <td colspan="4" class="text-center">No hay items en este carrito.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
           </tbody>
         </table>
       </div>
 
-      <!-- Paginación -->
-      <div class="pagination mt-3" *ngIf="totalPages > 1">
-        <button 
-          class="btn btn-secondary" 
-          [disabled]="currentPage === 1"
-          (click)="goToPage(currentPage - 1)"
-        >
-          Anterior
-        </button>
-        <span class="mx-3">
-          Página {{ currentPage }} de {{ totalPages }}
-        </span>
-        <button 
-          class="btn btn-secondary" 
-          [disabled]="currentPage === totalPages"
-          (click)="goToPage(currentPage + 1)"
-        >
-          Siguiente
-        </button>
-      </div>
-    </div>
-  </div>
+      <p *ngIf="!loading && !carritos.length" class="feature__state feature__state--empty">No hay carritos registrados.</p>
 
-  <!-- Modal para crear/editar carrito -->
-  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">{{ editingCarrito ? 'Editar Carrito' : 'Nuevo Carrito' }}</h5>
-          <button type="button" class="close" (click)="closeModal()">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <form (ngSubmit)="saveCarrito()">
-            <div class="form-group">
-              <label for="codigo">Id *</label>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="id" 
-                [(ngModel)]="carritoForm.id" 
-                name="id"
-                required
-                placeholder="Ingrese el id"
-              >
-            </div>
-            <div class="form-group">
-              <label for="usuario">Usuario *</label>
-              <textarea 
-                class="form-control" 
-                id="usuario" 
-                [(ngModel)]="carritoForm.usuario" 
-                name="usuario"
-                rows="3"
-                placeholder="Ingrese un usuario"
-              ></textarea>
-            </div>
-            <div class="form-group">
-              <label for="fecha_creacion">Fecha Creación *</label>
-              <input 
-                type="date" 
-                class="form-control" 
-                id="fecha_creacion" 
-                [(ngModel)]="carritoForm.fecha_creacion" 
-                name="fecha_creacion"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label for="fecha_edicion">Fecha Edición *</label>
-              <input 
-                type="date" 
-                class="form-control" 
-                id="fecha_edicion" 
-                [(ngModel)]="carritoForm.fecha_edicion" 
-                name="fecha_edicion"
-                required
-              >
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input 
-                  type="checkbox" 
-                  class="form-check-input" 
-                  id="activa" 
-                  [(ngModel)]="carritoForm.activa" 
-                  name="activa"
-                >
-                <label class="form-check-label" for="activa">
-                  Carrito activo
-                </label>
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-          <button type="button" class="btn btn-primary" (click)="saveCarrito()">
-            {{ editingCarrito ? 'Actualizar' : 'Crear' }}
-          </button>
-        </div>
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">Siguiente</button>
       </div>
     </div>
+  </section>
+</div>
+
+<div class="modal" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal__dialog" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h2>{{ modalTitle }}</h2>
+      <button type="button" class="modal__close" (click)="closeModal()">×</button>
+    </header>
+
+    <form class="modal__form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Usuario *</span>
+          <input formControlName="id_usuario" type="text" />
+        </label>
+        <label class="form-field">
+          <span>Estado</span>
+          <input formControlName="estado" type="text" />
+        </label>
+      </div>
+
+      <label class="checkbox">
+        <input type="checkbox" formControlName="activo" />
+        <span>Carrito activo</span>
+      </label>
+
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving">
+          {{ editingId ? 'Actualizar' : 'Crear' }}
+        </button>
+      </footer>
+    </form>
   </div>
 </div>

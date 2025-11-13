@@ -1,255 +1,149 @@
-<div class="producto-list">
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Gestión de Productos</h2>
-      <button class="btn btn-success" (click)="openCreateModal()">
-        Nuevo Producto
-      </button>
-    </div>
-    
-    <div class="card-body">
-      <!-- Filtros -->
-      <div class="filters mb-3">
-        <div class="row">
-          <div class="col-md-3">
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Buscar por nombre..."
-              [(ngModel)]="filters.nombre"
-              (input)="onFilterChange()"
-            >
-          </div>
-          <div class="col-md-2">
-            <input 
-              type="number" 
-              class="form-control" 
-              placeholder="Precio mínimo"
-              [(ngModel)]="filters.precio_min"
-              (input)="onFilterChange()"
-            >
-          </div>
-          <div class="col-md-2">
-            <input 
-              type="number" 
-              class="form-control" 
-              placeholder="Precio máximo"
-              [(ngModel)]="filters.precio_max"
-              (input)="onFilterChange()"
-            >
-          </div>
-          <div class="col-md-2">
-            <select 
-              class="form-control" 
-              [(ngModel)]="filters.activo"
-              (change)="onFilterChange()"
-            >
-              <option value="">Todos los estados</option>
+<div class="management">
+  <section class="card">
+    <header class="card__header">
+      <div class="card__titles">
+        <h1>Productos</h1>
+        <p>Gestiona el catálogo disponible, precios, stock y estado comercial.</p>
+      </div>
+      <button type="button" class="btn btn--primary" (click)="openCreateModal()">Nuevo producto</button>
+    </header>
+
+    <div class="card__body">
+      <section class="feature__filters">
+        <div class="filters__row">
+          <label>
+            <span>Nombre</span>
+            <input [(ngModel)]="filters.nombre" (input)="onFilterChange()" placeholder="Buscar por nombre" />
+          </label>
+          <label>
+            <span>Categoría</span>
+            <select [(ngModel)]="filters.categoria" (change)="onFilterChange()">
+              <option value="">Todas</option>
+              <option *ngFor="let categoria of categorias" [value]="categoria.id">{{ categoria.nombre }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select [(ngModel)]="filters.activo" (change)="onFilterChange()">
+              <option value="">Todos</option>
               <option value="true">Activos</option>
               <option value="false">Inactivos</option>
             </select>
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-secondary" (click)="clearFilters()">
-              Limpiar
-            </button>
-          </div>
+          </label>
+          <label>
+            <span>Precio mín.</span>
+            <input type="number" min="0" step="0.01" [(ngModel)]="filters.precioMin" (input)="onFilterChange()" />
+          </label>
+          <label>
+            <span>Precio máx.</span>
+            <input type="number" min="0" step="0.01" [(ngModel)]="filters.precioMax" (input)="onFilterChange()" />
+          </label>
+          <button type="button" class="btn btn--ghost" (click)="clearFilters()">Limpiar</button>
         </div>
-      </div>
+      </section>
 
-      <!-- Tabla de productos -->
-      <div class="table-responsive">
-        <table class="table">
+      <p *ngIf="errorMessage" class="feature__state feature__state--error">{{ errorMessage }}</p>
+      <p *ngIf="loading" class="feature__state">Cargando productos...</p>
+
+      <div class="table-wrapper table-wrapper--fixed" *ngIf="productos.length">
+        <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Nombre</th>
-              <th>Descripción</th>
+              <th>Producto</th>
               <th>Precio</th>
-              <th>Categoría</th>
               <th>Stock</th>
+              <th>Categoría</th>
               <th>Estado</th>
-              <th>Fecha Creación</th>
-              <th>Fecha Edición</th>
-              <th>Acciones</th>
+              <th>Creado</th>
+              <th class="text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngIf="loading">
-              <td colspan="9" class="text-center">Cargando...</td>
-            </tr>
-            <tr *ngIf="!loading && productos.length === 0">
-              <td colspan="9" class="text-center">No hay productos disponibles</td>
-            </tr>
             <tr *ngFor="let producto of productos">
-              <td>{{ producto.id }}</td>
-              <td>{{ producto.nombre }}</td>
-              <td>{{ producto.descripcion || '-' }}</td>
-              <td>{{ formatearPrecio(producto.precio) }}</td>
-              <td>{{ producto.categoria?.nombre || '-' }}</td>
               <td>
-                <span class="badge" [class.badge-success]="producto.stock > 20" [class.badge-warning]="producto.stock > 10 && producto.stock <= 20" [class.badge-danger]="producto.stock <= 10">
-                  {{ producto.stock }}
+                <div class="table-cell__primary">
+                  <strong>{{ producto.nombre }}</strong>
+                  <span *ngIf="producto.descripcion" class="table-cell__secondary">{{ producto.descripcion }}</span>
+                </div>
+              </td>
+              <td>{{ producto.precio | number:'1.2-2' }}</td>
+              <td>{{ producto.stock }}</td>
+              <td>{{ getCategoriaNombre(producto) }}</td>
+              <td>
+                <span class="badge" [class.badge--success]="producto.activo !== false" [class.badge--danger]="producto.activo === false">
+                  {{ producto.activo === false ? 'Inactivo' : 'Disponible' }}
                 </span>
               </td>
-              <td>
-                <span class="badge" [class.badge-success]="producto.activo" [class.badge-danger]="!producto.activo">
-                  {{ producto.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-              </td>
-              <td>{{ producto.fecha_creacion | date:'short' }}</td>
-              <td>
-                <button class="btn btn-sm btn-primary" (click)="editProducto(producto)">
-                  Editar
-                </button>
-                <button class="btn btn-sm btn-danger" (click)="deleteProducto(producto)">
-                  Eliminar
-                </button>
+              <td>{{ (producto.fecha_creacion || producto.fecha_actualizacion) ? ((producto.fecha_creacion || producto.fecha_actualizacion) | date:'short') : '—' }}</td>
+              <td class="table-actions">
+                <button type="button" class="btn btn--ghost" (click)="edit(producto)">Editar</button>
+                <button type="button" class="btn btn--danger" (click)="remove(producto)" [disabled]="saving">Eliminar</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Paginación -->
-      <div class="pagination mt-3" *ngIf="totalPages > 1">
-        <button 
-          class="btn btn-secondary" 
-          [disabled]="currentPage === 1"
-          (click)="goToPage(currentPage - 1)"
-        >
-          Anterior
-        </button>
-        <span class="mx-3">
-          Página {{ currentPage }} de {{ totalPages }}
-        </span>
-        <button 
-          class="btn btn-secondary" 
-          [disabled]="currentPage === totalPages"
-          (click)="goToPage(currentPage + 1)"
-        >
-          Siguiente
-        </button>
+      <p *ngIf="!loading && !productos.length" class="feature__state feature__state--empty">No hay productos registrados.</p>
+
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">Anterior</button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button type="button" class="btn btn--ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">Siguiente</button>
       </div>
     </div>
-  </div>
+  </section>
+</div>
 
-  <!-- Modal para crear/editar producto -->
-  <div class="modal fade" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">{{ editingProducto ? 'Editar Producto' : 'Nuevo Producto' }}</h5>
-          <button type="button" class="close" (click)="closeModal()">
-            <span>&times;</span>
-          </button>
-        </div>
-        <div class="modal-body">
-          <form (ngSubmit)="saveProducto()">
-            <div class="form-group">
-              <label for="nombre">Nombre *</label>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="nombre" 
-                [(ngModel)]="productoForm.nombre" 
-                name="nombre"
-                required
-                placeholder="Nombre del producto"
-              >
-            </div>
+<div class="modal" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal__dialog" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h2>{{ modalTitle }}</h2>
+      <button type="button" class="modal__close" (click)="closeModal()">×</button>
+    </header>
 
-            <div class="form-group">
-              <label for="precio">Precio *</label>
-              <input 
-                type="number" 
-                class="form-control" 
-                id="precio" 
-                [(ngModel)]="productoForm.precio" 
-                name="precio"
-                required
-                min="0"
-                step="0.01"
-                placeholder="Ingrese el precio"
-              >
-            </div>
-
-            <div class="form-group">
-              <label for="descripcion">Descripción</label>
-              <textarea 
-                class="form-control" 
-                id="descripcion" 
-                [(ngModel)]="productoForm.descripcion" 
-                name="descripcion"
-                rows="3"
-                placeholder="Ingrese una descripción del producto (opcional)"
-              ></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="stock">Stock *</label>
-              <input 
-                type="number" 
-                class="form-control" 
-                id="stock" 
-                [(ngModel)]="productoForm.stock" 
-                name="stock"
-                required
-                min="0"
-                placeholder="Ingrese la cantidad en stock"
-              >
-            </div>
-
-            <div class="form-group">
-              <label for="categoria_id">Categoría *</label>
-              <select 
-                class="form-control" 
-                id="categoria_id" 
-                [(ngModel)]="productoForm.categoria_id" 
-                name="categoria_id"
-                required
-              >
-                <option value="">Seleccione una categoría</option>
-                <option value="1">Tecnología</option>
-                <option value="2">Accesorios</option>
-                <option value="3">Audio</option>
-                <option value="4">Monitores</option>
-              </select>
-            </div>
-            <hr class="my-3" />
-            <div class="form-group">
-              <label for="usuario_crea">Usuario que crea</label>
-              <input 
-                type="text" 
-                class="form-control" 
-                id="usuario_crea" 
-                name="usuario_crea"
-                placeholder="Digite el usuario que crea este producto"
-              >
-            </div>
-            <div class="form-group">
-              <div class="form-check">
-                <input 
-                  type="checkbox" 
-                  class="form-check-input" 
-                  id="activo" 
-                  [(ngModel)]="productoForm.activo" 
-                  name="activo"
-                >
-                <label class="form-check-label" for="activo">
-                  Producto activo
-                </label>
-              </div>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary btn-modal-sep" (click)="closeModal()">Cancelar</button>
-          <button type="button" class="btn btn-primary btn-modal-sep" (click)="saveProducto()">
-            {{ editingProducto ? 'Actualizar' : 'Crear' }}
-          </button>
-        </div>
+    <form class="modal__form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Nombre *</span>
+          <input formControlName="nombre" type="text" />
+        </label>
+        <label class="form-field">
+          <span>Precio *</span>
+          <input formControlName="precio" type="number" step="0.01" min="0" />
+        </label>
       </div>
-    </div>
+      <div class="form-grid__row">
+        <label class="form-field">
+          <span>Stock *</span>
+          <input formControlName="stock" type="number" min="0" />
+        </label>
+        <label class="form-field">
+          <span>Categoría *</span>
+          <select formControlName="categoria_id">
+            <option value="" disabled selected hidden>Selecciona una categoría</option>
+            <option *ngFor="let categoria of categorias" [value]="categoria.id">{{ categoria.nombre }}</option>
+          </select>
+        </label>
+      </div>
+      <label class="form-field">
+        <span>Descripción</span>
+        <textarea formControlName="descripcion" rows="3" placeholder="Descripción corta del producto"></textarea>
+      </label>
+      <label class="form-field">
+        <span>Usuario propietario *</span>
+        <input formControlName="usuario_id" type="text" [readonly]="!isAdmin" />
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" formControlName="activo" />
+        <span>Producto activo</span>
+      </label>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="closeModal()" [disabled]="saving">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving">
+          {{ editingId ? 'Actualizar' : 'Crear' }}
+        </button>
+      </footer>
+    </form>
   </div>
 </div>
