@@ -48,16 +48,6 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'item-carrito',
-    loadComponent: () => import('./features/itemCarrito/itemCarrito-list/itemCarrito-list.component').then(m => m.ItemCarritoListComponent),
-    canActivate: [AuthGuard]
-  },
-  {
-    path: 'item-pedido',
-    loadComponent: () => import('./features/itemPedido/itemPedido-list/itemPedido-list.component').then(m => m.ItemPedidoListComponent),
-    canActivate: [AuthGuard]
-  },
-  {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.routes').then(m => m.authRoutes)
   },

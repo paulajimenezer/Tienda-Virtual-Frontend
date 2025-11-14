@@ -1,80 +1,40 @@
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ChangePasswordRequest, CreateUsuarioRequest, UpdateUsuarioRequest, UsuarioFilters, Carrito } from '../../shared/models/carrito.model';
-import { PaginationParams } from '../models/api-response.model';
-import { ApiService } from './api.service';
+import { environment } from '../../../environments/environment';
+import { Carrito, CarritoCreate, CarritoFilters, CarritoUpdate } from '../../shared/models/carrito.model';
 
-@Injectable({
-  providedIn: 'root'
-})
-export class UsuarioService {
-  private readonly endpoint = '/carritos';
+@Injectable({ providedIn: 'root' })
+export class CarritoService {
+	private readonly apiUrl = `${environment.apiUrl}/carritos`;
 
-  constructor(private apiService: ApiService) { }
+	constructor(private http: HttpClient) {}
 
-  /**
-   * Obtiene todos los usuarios con paginación
-   */
-  getCarritos(pagination: PaginationParams, filters?: UsuarioFilters): Observable<Carrito[]> {
-    return this.apiService.getPaginated<Carrito>(this.endpoint, pagination, filters);
-  }
+	list(filters?: CarritoFilters): Observable<Carrito[]> {
+		let params = new HttpParams();
+		if (filters) {
+			Object.entries(filters).forEach(([key, value]) => {
+				if (value !== undefined && value !== null && value !== '') {
+					params = params.set(key, String(value));
+				}
+			});
+		}
+		return this.http.get<Carrito[]>(this.apiUrl, { params });
+	}
 
-  /**
-   * Obtiene un usuario por ID
-   */
-  getUsuarioById(id: string): Observable<Carrito> {
-    return this.apiService.get<Carrito>(`${this.endpoint}/${id}`);
-  }
+	getById(id: string): Observable<Carrito> {
+		return this.http.get<Carrito>(`${this.apiUrl}/${id}`);
+	}
 
+	create(payload: CarritoCreate): Observable<Carrito> {
+		return this.http.post<Carrito>(this.apiUrl, payload);
+	}
 
+	update(id: string, payload: CarritoUpdate): Observable<Carrito> {
+		return this.http.put<Carrito>(`${this.apiUrl}/${id}`, payload);
+	}
 
-
-  /**
-   * Crea un nuevo usuario
-   */
- /* createUsuario(usuario: CreateCarritoRequest): Observable<Carrito> {
-    return this.apiService.post<Carrito>(this.endpoint, usuario);
-  }*/
-
-  /**
-   * Actualiza un usuario existente
-   */
-  updateUsuario(id: string, usuario: UpdateUsuarioRequest): Observable<Carrito> {
-    return this.apiService.put<Carrito>(`${this.endpoint}/${id}`, usuario);
-  }
-
-  /**
-   * Elimina un usuario
-   */
-  deleteUsuario(id: string): Observable<any> {
-    return this.apiService.delete<any>(`${this.endpoint}/${id}`);
-  }
-
-  /**
-   * Desactiva un usuario (soft delete)
-   */
-  desactivarUsuario(id: string): Observable<Carrito> {
-    return this.apiService.patch<Carrito>(`${this.endpoint}/${id}/desactivar`, {});
-  }
-
-  /**
-   * Cambia la contraseña de un usuario
-   */
-  changePassword(id: string, passwordData: ChangePasswordRequest): Observable<any> {
-    return this.apiService.post<any>(`${this.endpoint}/${id}/cambiar-contraseña`, passwordData);
-  }
-
-  /**
-   * Obtiene todos los usuarios administradores
-   */
-  getUsuariosAdmin(): Observable<Carrito[]> {
-    return this.apiService.get<Carrito[]>(`${this.endpoint}/admin/lista`);
-  }
-
-  /**
-   * Verifica si un usuario es administrador
-   */
-  verificarEsAdmin(id: string): Observable<any> {
-    return this.apiService.get<any>(`${this.endpoint}/${id}/es-admin`);
-  }
+	delete(id: string): Observable<void> {
+		return this.http.delete<void>(`${this.apiUrl}/${id}`);
+	}
 }

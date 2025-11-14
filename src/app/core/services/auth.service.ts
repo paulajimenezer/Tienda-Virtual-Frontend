@@ -1,184 +1,275 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { Usuario } from '../../shared/models/usuario.model';
-import { ApiService } from './api.service';
 
+// Legacy/alternate login shape used by older components
 export interface LoginRequest {
-  nombre_usuario: string;
-  contrasena: string;
+	nombre_usuario: string;
+	contrasena: string;
 }
 
 export interface LoginResponse {
-  clave: string;
-  nombre_usuario: Usuario;
+	clave: string; // token string in older mock shape or 'access_token'
+	nombre_usuario: any; // may contain nested usuario object
+	access_token?: string;
+	token_type?: string;
+	usuario?: unknown;
 }
 
-export interface User {
-  id: string;
-  email: string;
-  nombre: string;
-  nombre_usuario: string;
-  telefono?: string;
-  activo: boolean;
-  es_admin: boolean;
-  fecha_creacion: string;
-  fecha_edicion?: string;
+interface LoginCredentials {
+	email: string;
+	password: string;
 }
 
-export type UserRole = 'admin' | 'consumidor';
+export interface AuthUser {
+	id: string;
+	nombre: string;
+	apellido: string;
+	email: string;
+	nombreUsuario?: string;
+	activo?: boolean;
+	esAdmin?: boolean;
+	rol?: string;
+	fechaCreacion?: string;
+	fechaEdicion?: string;
+}
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly TOKEN_KEY = 'auth_token';
-  private readonly USER_KEY = 'user_data';
-  private readonly ROLE_KEY = 'user_role';
-  
-  private currentUserSubject = new BehaviorSubject<User | null>(null);
-  public currentUser$ = this.currentUserSubject.asObservable();
+	private readonly TOKEN_KEY = 'auth_token';
+	private readonly USER_KEY = 'auth_user';
+	private readonly ROLE_KEY = 'auth_role';
+	private readonly apiUrl = environment.apiUrl;
+	private readonly routePermissions: Record<string, Array<'admin' | 'cliente'>> = {
+		usuarios: ['admin'],
+		categorias: ['admin'],
+		productos: ['admin', 'cliente'],
+		pedidos: ['admin'],
+		facturas: ['admin', 'cliente'],
+		descuentos: ['admin'],
+		carritos: ['admin', 'cliente']
+	};
 
-  constructor(private apiService: ApiService) {
-    this.loadUserFromStorage();
-  }
+	private currentUserSubject = new BehaviorSubject<AuthUser | null>(this.loadUserFromStorage());
+	readonly currentUser$ = this.currentUserSubject.asObservable();
 
-  /**
-   * Inicia sesión del usuario usando el backend real
-   */
-  login(credentials: LoginRequest): Observable<LoginResponse> {
-    console.log('AuthService: Intentando login con credenciales:', credentials);
-    return this.apiService.post<LoginResponse>('/auth/login', credentials);
-  }
+	constructor(private http: HttpClient) {}
 
-  /**
-   * Crea un usuario administrador inicial
-   */
-  crearAdmin(): Observable<any> {
-    return this.apiService.post('/auth/crear-admin', {});
-  }
+	/**
+	 * Login compatible con dos formas de credenciales:
+	 * - Nuevo: { email, password }
+	 * - Legacy: { nombre_usuario, contrasena }
+	 * Devuelve el objeto raw de respuesta (LoginResponse) y además persiste sesión.
+	 */
+	login(credentials: LoginCredentials | LoginRequest): Observable<LoginResponse> {
+		const url = `${this.apiUrl}/auth/login`;
+		// Normalizar payload al formato esperado por el backend
+		const payload: any = (credentials as any).nombre_usuario
+			? { email: (credentials as LoginRequest).nombre_usuario, password: (credentials as LoginRequest).contrasena }
+			: credentials;
 
-  /**
-   * Verifica el estado de autenticación
-   */
-  verificarEstado(): Observable<any> {
-    return this.apiService.get('/auth/estado');
-  }
+		return this.http.post<LoginResponse>(url, payload).pipe(
+			tap(response => this.persistLogin(response as any))
+		);
+	}
 
-  /**
-   * Verifica un usuario por ID
-   */
-  verificarUsuario(usuarioId: string): Observable<Usuario> {
-    return this.apiService.get<Usuario>(`/auth/verificar/${usuarioId}`);
-  }
+	/** Verificar estado del servicio de autenticación (endpoint /auth/estado) */
+	verificarEstado(): Observable<any> {
+		return this.http.get(`${this.apiUrl}/auth/estado`);
+	}
 
-  /**
-   * Cierra sesión del usuario
-   */
-  logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.USER_KEY);
-    localStorage.removeItem(this.ROLE_KEY);
-    this.currentUserSubject.next(null);
-  }
+	logout(): void {
+		this.storeSession(null);
+	}
 
-  /**
-   * Obtiene el token de autenticación
-   */
-  getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
-  }
+	setUserData(user: any, token?: string | null): void {
+		const authUser = this.mapToAuthUser(user as Record<string, unknown>);
+		this.storeSession(authUser, token ?? this.getToken());
+	}
 
-  /**
-   * Verifica si el usuario está autenticado
-   */
-  isAuthenticated(): boolean {
-    return !!this.getToken();
-  }
+	isAuthenticated(): boolean {
+		return !!this.getToken();
+	}
 
-  /**
-   * Obtiene el usuario actual
-   */
-  getCurrentUser(): User | null {
-    return this.currentUserSubject.value;
-  }
+	getToken(): string | null {
+		return localStorage.getItem(this.TOKEN_KEY);
+	}
 
-  /**
-   * Guarda los datos del usuario después del login
-   */
-  setUserData(loginResponse: LoginResponse): void {
-    console.log('AuthService: Guardando datos del usuario:', loginResponse);
-    localStorage.setItem(this.TOKEN_KEY, loginResponse.clave);
-    localStorage.setItem(this.USER_KEY, JSON.stringify(loginResponse.nombre_usuario));
-    localStorage.setItem(this.ROLE_KEY, loginResponse.nombre_usuario.es_admin ? 'admin' : 'consumidor');
-    this.currentUserSubject.next(loginResponse.nombre_usuario);
-    console.log('AuthService: Datos guardados en localStorage');
-    console.log('Token:', localStorage.getItem(this.TOKEN_KEY));
-    console.log('Usuario:', localStorage.getItem(this.USER_KEY));
-  }
+	getCurrentUser(): AuthUser | null {
+		return this.currentUserSubject.value;
+	}
 
-  /**
-   * Carga los datos del usuario desde el almacenamiento local
-   */
-  private loadUserFromStorage(): void {
-    const userData = localStorage.getItem(this.USER_KEY);
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        this.currentUserSubject.next(user);
-      } catch (error) {
-        console.error('Error al cargar datos del usuario:', error);
-        this.logout();
-      }
-    }
-  }
+	getUserRole(): string | null {
+		const stored = localStorage.getItem(this.ROLE_KEY);
+		if (stored) {
+			return stored;
+		}
+		const user = this.currentUserSubject.value;
+		if (!user) {
+			return null;
+		}
+		return user.esAdmin ? 'admin' : 'cliente';
+	}
 
-  /**
-   * Obtiene el rol del usuario actual
-   */
-  getUserRole(): UserRole | null {
-    const user = this.getCurrentUser();
-    return user?.es_admin ? 'admin' : 'consumidor';
-  }
+	isAdmin(): boolean {
+		return this.getUserRole() === 'admin';
+	}
 
-  /**
-   * Verifica si el usuario tiene un rol específico
-   */
-  hasRole(role: UserRole): boolean {
-    return this.getUserRole() === role;
-  }
+	canAccess(routePath: string): boolean {
+		if (!this.isAuthenticated()) {
+			return false;
+		}
+		const normalized = (routePath ?? '').replace(/^\//, '');
+		const segment = normalized.split('/')[0];
+		if (!segment) {
+			return true;
+		}
+		const allowedRoles = this.routePermissions[segment];
+		if (!allowedRoles) {
+			return true;
+		}
+		const role = this.getUserRole() ?? 'cliente';
+		return allowedRoles.includes(role as 'admin' | 'cliente');
+	}
 
-  /**
-   * Verifica si el usuario es administrador
-   */
-  isAdmin(): boolean {
-    const user = this.getCurrentUser();
-    return user?.es_admin || false;
-  }
+	private persistLogin(response: LoginResponse): void {
+		const authUser = this.mapToAuthUser(response.usuario ?? response.nombre_usuario ?? response);
+		const tokenStr = (response.access_token as string | undefined) ?? (response.clave as string | undefined) ?? null;
+		const roleFromToken = this.extractRoleFromToken(tokenStr);
+		const finalUser = roleFromToken
+			? { ...authUser, esAdmin: roleFromToken === 'admin', rol: roleFromToken }
+			: authUser;
 
-  /**
-   * Verifica si el usuario es consumidor
-   */
-  isConsumidor(): boolean {
-    const user = this.getCurrentUser();
-    return !user?.es_admin;
-  }
+		console.log('💾 Guardando sesión...');
+		if (tokenStr) {
+			console.log('Token recibido:', tokenStr.substring(0, 20) + '...');
+		} else {
+			console.log('Token recibido: <vacío>');
+		}
+		console.log('Usuario mapeado:', finalUser);
 
-  /**
-   * Verifica si el usuario puede acceder a una ruta específica
-   */
-  canAccess(route: string): boolean {
-    const role = this.getUserRole();
-    
-    if (!role) return false;
+		this.storeSession(finalUser, tokenStr);
 
-    // Admin puede acceder a todo
-    if (role === 'admin') return true;
+		// Verificar que se guardó correctamente
+		const storedToken = localStorage.getItem(this.TOKEN_KEY);
+		console.log('✅ Token guardado en localStorage:', storedToken ? 'Sí' : 'No');
+	}
 
-    // Consumidor solo puede acceder a productos
-    if (role === 'consumidor') {
-      return route === 'productos' || route === 'dashboard';
-    }
+	private storeSession(user: AuthUser | null, token?: string | null): void {
+		if (user && token) {
+			const normalizedRole = (user.rol ?? (user.esAdmin ? 'admin' : 'cliente')) as 'admin' | 'cliente';
+			const normalizedUser: AuthUser = { ...user, rol: normalizedRole, esAdmin: normalizedRole === 'admin' };
+			
+			localStorage.setItem(this.TOKEN_KEY, token);
+			localStorage.setItem(this.USER_KEY, JSON.stringify(normalizedUser));
+			localStorage.setItem(this.ROLE_KEY, normalizedRole);
+			
+			this.currentUserSubject.next(normalizedUser);
+		} else {
+			localStorage.removeItem(this.TOKEN_KEY);
+			localStorage.removeItem(this.USER_KEY);
+			localStorage.removeItem(this.ROLE_KEY);
+			this.currentUserSubject.next(null);
+		}
+	}
 
-    return false;
-  }
+	private loadUserFromStorage(): AuthUser | null {
+		const raw = localStorage.getItem(this.USER_KEY);
+		if (!raw) {
+			return null;
+		}
+		try {
+			return JSON.parse(raw) as AuthUser;
+		} catch {
+			localStorage.removeItem(this.USER_KEY);
+			return null;
+		}
+	}
+
+	private mapToAuthUser(raw: unknown): AuthUser {
+		const base = (raw as Record<string, unknown>) ?? {};
+		const nested = (base['usuario'] ?? base['user'] ?? base['nombre_usuario']) as Record<string, unknown> | undefined;
+		const source = nested ?? base;
+
+		const rawRole = this.resolveString(source, ['rol', 'rol_nombre', 'nombre_rol']);
+		const normalizedRole = rawRole?.toLowerCase();
+		const esAdmin =
+			this.resolveBoolean(source, ['esAdmin', 'es_admin', 'es-admin']) ??
+			(normalizedRole?.includes('admin') ? true : undefined);
+
+		return {
+			id: this.resolveString(source, ['id', 'usuario_id']) ?? '',
+			nombre: this.resolveString(source, ['nombre']) ?? '',
+			apellido: this.resolveString(source, ['apellido']) ?? '',
+			email: this.resolveString(source, ['email']) ?? '',
+			nombreUsuario: this.resolveString(source, ['nombre_usuario', 'username', 'userName']),
+			activo: this.resolveBoolean(source, ['activo']),
+			esAdmin,
+			rol: normalizedRole?.includes('admin') ? 'admin' : normalizedRole?.includes('cliente') ? 'cliente' : rawRole,
+			fechaCreacion: this.resolveString(source, ['fecha_creacion', 'fechaCreacion']),
+			fechaEdicion: this.resolveString(source, ['fecha_actualizacion', 'fecha_actualizada', 'fecha_edicion', 'fechaActualizacion'])
+		};
+	}
+
+	private resolveString(source: Record<string, unknown>, keys: string[]): string | undefined {
+		for (const key of keys) {
+			const value = source[key];
+			if (typeof value === 'string' && value.trim() !== '') {
+				return value;
+			}
+		}
+		return undefined;
+	}
+
+	private resolveBoolean(source: Record<string, unknown>, keys: string[]): boolean | undefined {
+		for (const key of keys) {
+			const value = source[key];
+			if (typeof value === 'boolean') {
+				return value;
+			}
+			if (typeof value === 'number') {
+				return value !== 0;
+			}
+			if (typeof value === 'string') {
+				const normalized = value.toLowerCase();
+				if (['true', '1', 'si', 'sí'].includes(normalized)) {
+					return true;
+				}
+				if (['false', '0', 'no'].includes(normalized)) {
+					return false;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private extractRoleFromToken(token: string | null): 'admin' | 'cliente' | null {
+		if (!token || typeof atob !== 'function') {
+			return null;
+		}
+		try {
+			const payloadSegment = token.split('.')[1];
+			if (!payloadSegment) {
+				return null;
+			}
+			const payload = JSON.parse(atob(payloadSegment)) as Record<string, unknown>;
+			const rawRole = (payload['rol'] ?? payload['role'] ?? payload['rol_nombre']) as string | undefined;
+			const normalizedRole = rawRole?.toLowerCase();
+			if (normalizedRole?.includes('admin')) {
+				return 'admin';
+			}
+			if (normalizedRole?.includes('cliente') || normalizedRole?.includes('client')) {
+				return 'cliente';
+			}
+			const esAdmin = payload['es_admin'];
+			if (typeof esAdmin === 'boolean') {
+				return esAdmin ? 'admin' : 'cliente';
+			}
+		} catch (error) {
+			console.warn('No fue posible extraer el rol del token', error);
+		}
+		return null;
+	}
 }

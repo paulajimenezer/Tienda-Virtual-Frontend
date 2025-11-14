@@ -1,91 +1,67 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ChangePasswordRequest, CreateUsuarioRequest, UpdateUsuarioRequest, Usuario, UsuarioFilters } from '../../shared/models/usuario.model';
-import { PaginationParams } from '../models/api-response.model';
 import { ApiService } from './api.service';
+import { Usuario, UsuarioCreate, UsuarioFilters, UsuarioUpdate } from '../../shared/models/usuario.model';
+import { PaginationParams } from '../models/api-response.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class UsuarioService {
-  private readonly endpoint = '/usuarios';
+	private readonly endpoint = '/usuarios';
 
-  constructor(private apiService: ApiService) { }
+	constructor(private apiService: ApiService) {}
 
-  /**
-   * Obtiene todos los usuarios con paginación
-   */
-  getUsuarios(pagination: PaginationParams, filters?: UsuarioFilters): Observable<Usuario[]> {
-    return this.apiService.getPaginated<Usuario>(this.endpoint, pagination, filters);
-  }
+	list(pagination?: PaginationParams, filters?: UsuarioFilters): Observable<Usuario[]> {
+		const params = this.normalizeFilters(filters);
+		if (pagination) {
+			return this.apiService.getPaginated<Usuario>(this.endpoint, pagination, params);
+		}
+		return this.apiService.get<Usuario[]>(this.endpoint, params);
+	}
 
-  /**
-   * Obtiene un usuario por ID
-   */
-  getUsuarioById(id: string): Observable<Usuario> {
-    return this.apiService.get<Usuario>(`${this.endpoint}/${id}`);
-  }
+	/** Compat: createUsuario (wrapper antiguo) */
+	createUsuario(payload: any) {
+		// Map legacy fields to the new UsuarioCreate shape when possible
+		const mapped = {
+			nombre: payload.nombre ?? payload.nombre_usuario ?? '',
+			apellido: payload.apellido ?? '',
+			email: payload.email ?? payload.nombre_usuario ?? '',
+			password: payload.password ?? payload.contrasena ?? '',
+			numero_documento: payload.numero_documento ?? '',
+			id_rol: payload.id_rol ?? payload.rol ?? 'cliente',
+			id_tipo_documento: payload.id_tipo_documento ?? payload.tipo_documento ?? '',
+			id_sexo: payload.id_sexo ?? null,
+			id_usuario_crea: payload.id_usuario_crea ?? null
+		};
+		return this.create(mapped);
+	}
 
-  /**
-   * Obtiene un usuario por email
-   */
-  getUsuarioByEmail(email: string): Observable<Usuario> {
-    return this.apiService.get<Usuario>(`${this.endpoint}/email/${email}`);
-  }
+	getById(id: string): Observable<Usuario> {
+		return this.apiService.get<Usuario>(`${this.endpoint}/${id}`);
+	}
 
-  /**
-   * Obtiene un usuario por nombre de usuario
-   */
-  getUsuarioByUsername(username: string): Observable<Usuario> {
-    return this.apiService.get<Usuario>(`${this.endpoint}/username/${username}`);
-  }
+	create(payload: UsuarioCreate): Observable<Usuario> {
+		return this.apiService.post<Usuario>(this.endpoint, payload);
+	}
 
-  /**
-   * Crea un nuevo usuario
-   */
-  createUsuario(usuario: CreateUsuarioRequest): Observable<Usuario> {
-    return this.apiService.post<Usuario>(this.endpoint, usuario);
-  }
+	update(id: string, payload: UsuarioUpdate): Observable<Usuario> {
+		return this.apiService.put<Usuario>(`${this.endpoint}/${id}`, payload);
+	}
 
-  /**
-   * Actualiza un usuario existente
-   */
-  updateUsuario(id: string, usuario: UpdateUsuarioRequest): Observable<Usuario> {
-    return this.apiService.put<Usuario>(`${this.endpoint}/${id}`, usuario);
-  }
+	delete(id: string): Observable<void> {
+		return this.apiService.delete<void>(`${this.endpoint}/${id}`);
+	}
 
-  /**
-   * Elimina un usuario
-   */
-  deleteUsuario(id: string): Observable<any> {
-    return this.apiService.delete<any>(`${this.endpoint}/${id}`);
-  }
+	desactivar(id: string): Observable<Usuario> {
+		return this.apiService.patch<Usuario>(`${this.endpoint}/${id}/desactivar`, {});
+	}
 
-  /**
-   * Desactiva un usuario (soft delete)
-   */
-  desactivarUsuario(id: string): Observable<Usuario> {
-    return this.apiService.patch<Usuario>(`${this.endpoint}/${id}/desactivar`, {});
-  }
-
-  /**
-   * Cambia la contraseña de un usuario
-   */
-  changePassword(id: string, passwordData: ChangePasswordRequest): Observable<any> {
-    return this.apiService.post<any>(`${this.endpoint}/${id}/cambiar-contraseña`, passwordData);
-  }
-
-  /**
-   * Obtiene todos los usuarios administradores
-   */
-  getUsuariosAdmin(): Observable<Usuario[]> {
-    return this.apiService.get<Usuario[]>(`${this.endpoint}/admin/lista`);
-  }
-
-  /**
-   * Verifica si un usuario es administrador
-   */
-  verificarEsAdmin(id: string): Observable<any> {
-    return this.apiService.get<any>(`${this.endpoint}/${id}/es-admin`);
-  }
+	private normalizeFilters(filters?: UsuarioFilters): Record<string, string> | undefined {
+		if (!filters) {
+			return undefined;
+		}
+		const entries = Object.entries(filters)
+			.filter(([, value]) => value !== undefined && value !== null && value !== '')
+			.map(([key, value]) => [key, String(value)] as const);
+		return entries.length ? Object.fromEntries(entries) : undefined;
+	}
 }

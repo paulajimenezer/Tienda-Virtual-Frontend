@@ -1,337 +1,299 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, ViewChild } from '@angular/core';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Router } from '@angular/router';
-import { NotificationService } from '../../../core/services/notification.service';
 import { UsuarioService } from '../../../core/services/usuario.service';
-import { CreateUsuarioRequest } from '../../../shared/models/usuario.model';
+import { NotificationService } from '../../../core/services/notification.service';
+import { UsuarioCreate } from '../../../shared/models/usuario.model';
+
+interface RegisterData extends UsuarioCreate {
+	confirmPassword: string;
+	telefono?: string;
+	esAdmin: boolean;
+}
 
 @Component({
-  selector: 'app-register',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <div class="register-container">
-      <div class="register-card slide-in-up">
-        <div class="card glass">
-          <div class="card-header text-center">
-            <div class="register-icon">✨</div>
-            <h2 class="card-title text-title-contrast">Crear Cuenta</h2>
-            <p class="register-subtitle text-high-contrast">Únete a nuestro sistema</p>
-          </div>
-          
-          <div class="card-body">
-            <form (ngSubmit)="onSubmit()" #registerForm="ngForm">
-              <div class="form-group">
-                <label for="email" class="form-label">
-                  <span class="label-icon">📧</span>
-                  Email
-                </label>
-                <input 
-                  type="email" 
-                  id="email"
-                  class="form-control" 
-                  [(ngModel)]="registerData.email"
-                  name="email"
-                  required
-                  email
-                  placeholder="tu@email.com"
-                  #email="ngModel"
-                  [class.is-invalid]="email.invalid && email.touched"
-                >
-                <div class="invalid-feedback" *ngIf="email.invalid && email.touched">
-                  <div *ngIf="email.errors?.['required']">El email es requerido</div>
-                  <div *ngIf="email.errors?.['email']">El email no es válido</div>
-                </div>
-              </div>
+	selector: 'app-register',
+	standalone: true,
+	imports: [CommonModule, FormsModule],
+	template: `
+		<div class="auth-wrapper">
+			<div class="auth-card">
+				<h1>Crear cuenta</h1>
+				<form #registerForm="ngForm" (ngSubmit)="onSubmit()">
+					<div class="grid">
+						<label>
+							Nombre
+							<input
+								type="text"
+								name="nombre"
+								required
+								minlength="2"
+								[(ngModel)]="registerData.nombre"
+								[disabled]="loading"
+							/>
+						</label>
+						<label>
+							Apellido
+							<input
+								type="text"
+								name="apellido"
+								required
+								minlength="2"
+								[(ngModel)]="registerData.apellido"
+								[disabled]="loading"
+							/>
+						</label>
+					</div>
 
-              <div class="form-group">
-                <label for="password" class="form-label">
-                  <span class="label-icon">🔑</span>
-                  Contraseña
-                </label>
-                <input 
-                  type="password" 
-                  id="password"
-                  class="form-control" 
-                  [(ngModel)]="registerData.password"
-                  name="password"
-                  required
-                  minlength="6"
-                  placeholder="••••••••"
-                  #password="ngModel"
-                  [class.is-invalid]="password.invalid && password.touched"
-                >
-                <div class="invalid-feedback" *ngIf="password.invalid && password.touched">
-                  <div *ngIf="password.errors?.['required']">La contraseña es requerida</div>
-                  <div *ngIf="password.errors?.['minlength']">La contraseña debe tener al menos 6 caracteres</div>
-                </div>
-              </div>
+					<label>
+						Correo electrónico
+						<input
+							type="email"
+							name="email"
+							required
+							[(ngModel)]="registerData.email"
+							[disabled]="loading"
+						/>
+					</label>
 
-              <div class="form-group">
-                <label for="nombre" class="form-label">
-                  <span class="label-icon">👤</span>
-                  Nombre
-                </label>
-                <input 
-                  type="text" 
-                  id="nombre"
-                  class="form-control" 
-                  [(ngModel)]="registerData.nombre"
-                  name="nombre"
-                  required
-                  minlength="2"
-                  placeholder="Tu nombre"
-                  #nombre="ngModel"
-                  [class.is-invalid]="nombre.invalid && nombre.touched"
-                >
-                <div class="invalid-feedback" *ngIf="nombre.invalid && nombre.touched">
-                  <div *ngIf="nombre.errors?.['required']">El nombre es requerido</div>
-                  <div *ngIf="nombre.errors?.['minlength']">El nombre debe tener al menos 2 caracteres</div>
-                </div>
-              </div>
+					<div class="grid">
+						<label>
+							Documento
+							<input
+								type="text"
+								name="numero_documento"
+								required
+								[(ngModel)]="registerData.numero_documento"
+								[disabled]="loading"
+							/>
+						</label>
+						<label>
+							Rol (ID)
+							<input
+								type="text"
+								name="id_rol"
+								required
+								[(ngModel)]="registerData.id_rol"
+								[disabled]="loading"
+							/>
+						</label>
+					</div>
 
-              <div class="form-group">
-                <label for="apellido" class="form-label">
-                  <span class="label-icon">👥</span>
-                  Apellido
-                </label>
-                <input 
-                  type="text" 
-                  id="apellido"
-                  class="form-control" 
-                  [(ngModel)]="registerData.apellido"
-                  name="apellido"
-                  required
-                  minlength="2"
-                  placeholder="Tu apellido"
-                  #apellido="ngModel"
-                  [class.is-invalid]="apellido.invalid && apellido.touched"
-                >
-                <div class="invalid-feedback" *ngIf="apellido.invalid && apellido.touched">
-                  <div *ngIf="apellido.errors?.['required']">El apellido es requerido</div>
-                  <div *ngIf="apellido.errors?.['minlength']">El apellido debe tener al menos 2 caracteres</div>
-                </div>
-              </div>
+					<div class="grid">
+						<label>
+							Tipo documento (ID)
+							<input
+								type="text"
+								name="id_tipo_documento"
+								required
+								[(ngModel)]="registerData.id_tipo_documento"
+								[disabled]="loading"
+							/>
+						</label>
+						<label>
+							Sexo (ID opcional)
+							<input
+								type="text"
+								name="id_sexo"
+								[(ngModel)]="registerData.id_sexo"
+								[disabled]="loading"
+							/>
+						</label>
+					</div>
 
-              <div class="form-group">
-                <button 
-                  type="submit" 
-                  class="btn btn-primary w-100 btn-lg"
-                  [disabled]="registerForm.invalid || loading"
-                  [class.loading]="loading"
-                >
-                  <span *ngIf="loading" class="spinner"></span>
-                  <span *ngIf="loading">Registrando...</span>
-                  <span *ngIf="!loading">
-                    <span class="btn-icon">✨</span>
-                    Crear Cuenta
-                  </span>
-                </button>
-              </div>
+					<div class="grid">
+						<label>
+							Contraseña
+							<input
+								type="password"
+								name="password"
+								required
+								minlength="6"
+								[(ngModel)]="registerData.password"
+								[disabled]="loading"
+							/>
+						</label>
+						<label>
+							Confirmar contraseña
+							<input
+								type="password"
+								name="confirmPassword"
+								required
+								minlength="6"
+								[(ngModel)]="registerData.confirmPassword"
+								[disabled]="loading"
+							/>
+						</label>
+					</div>
 
-              <div class="form-options">
-                <div class="text-center">
-                  <span class="login-text">¿Ya tienes cuenta? </span>
-                  <a routerLink="/auth/login" class="link">
-                    <span class="link-icon">🔐</span>
-                    Inicia sesión aquí
-                  </a>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .register-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 80vh;
-      padding: 2rem;
-    }
-    
-    .register-card {
-      width: 100%;
-      max-width: 500px;
-    }
+					<label class="checkbox">
+						<input
+							type="checkbox"
+							name="esAdmin"
+							[(ngModel)]="registerData.esAdmin"
+							[disabled]="loading"
+						/>
+						Registrar como administrador
+					</label>
 
-    .register-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
-      animation: pulse 2s infinite;
-    }
-
-    .register-subtitle {
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 1rem;
-      margin-bottom: 0;
-      font-weight: 500;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    }
-
-    .form-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 600;
-      color: var(--dark-color);
-    }
-
-    .label-icon {
-      font-size: 1.125rem;
-    }
-
-    .form-control {
-      margin-top: 0.5rem;
-      transition: all 0.3s ease;
-    }
-
-    .form-control:focus {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
-    }
-
-    .form-options {
-      margin-top: 2rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: var(--primary-color);
-      text-decoration: none;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      padding: 0.5rem;
-      border-radius: var(--radius-sm);
-    }
-
-    .link:hover {
-      background: rgba(59, 130, 246, 0.1);
-      transform: translateY(-1px);
-    }
-
-    .link-icon {
-      font-size: 1rem;
-    }
-
-    .login-text {
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 0.875rem;
-      font-weight: 500;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    }
-
-    .btn.loading {
-      opacity: 0.8;
-      cursor: not-allowed;
-    }
-
-    .btn-icon {
-      margin-right: 0.5rem;
-    }
-
-    .is-invalid {
-      border-color: #dc3545;
-    }
-    
-    .invalid-feedback {
-      display: block;
-      width: 100%;
-      margin-top: 0.25rem;
-      font-size: 0.875rem;
-      color: #dc3545;
-    }
-
-    @keyframes pulse {
-      0% {
-        transform: scale(1);
-      }
-      50% {
-        transform: scale(1.05);
-      }
-      100% {
-        transform: scale(1);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .register-container {
-        padding: 1rem;
-      }
-
-      .register-card {
-        max-width: 100%;
-      }
-
-      .register-icon {
-        font-size: 2.5rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .register-container {
-        padding: 0.5rem;
-      }
-
-      .form-label {
-        font-size: 0.875rem;
-      }
-
-      .link {
-        font-size: 0.875rem;
-      }
-    }
-  `]
+					<button type="submit" [disabled]="loading || !registerForm.valid">
+						{{ loading ? 'Registrando...' : 'Registrarse' }}
+					</button>
+				</form>
+			</div>
+		</div>
+	`,
+	styles: [`
+		.auth-wrapper {
+			display: grid;
+			place-items: center;
+			min-height: 100vh;
+			background: linear-gradient(135deg, #0f172a, #1e293b);
+			padding: 1.5rem;
+		}
+		.auth-card {
+			width: min(520px, 100%);
+			padding: 2.25rem;
+			border-radius: 1.25rem;
+			background: rgba(15, 23, 42, 0.9);
+			color: white;
+			box-shadow: 0 22px 48px rgba(15, 23, 42, 0.38);
+		}
+		h1 {
+			margin: 0 0 1.75rem;
+			font-size: 1.9rem;
+			text-align: center;
+			font-weight: 700;
+		}
+		form {
+			display: grid;
+			gap: 1rem;
+		}
+		.grid {
+			display: grid;
+			gap: 1rem;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		}
+		label {
+			display: grid;
+			gap: 0.35rem;
+			font-weight: 500;
+		}
+		input[type='text'],
+		input[type='email'],
+		input[type='password'] {
+			width: 100%;
+			padding: 0.75rem;
+			border-radius: 0.7rem;
+			border: 1px solid rgba(255, 255, 255, 0.15);
+			background: rgba(15, 23, 42, 0.62);
+			color: inherit;
+		}
+		input:disabled {
+			opacity: 0.6;
+		}
+		.checkbox {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			font-size: 0.95rem;
+		}
+		button[type='submit'] {
+			margin-top: 0.5rem;
+			padding: 0.9rem;
+			border: none;
+			border-radius: 0.8rem;
+			background: linear-gradient(135deg, #22d3ee, #6366f1);
+			color: white;
+			font-weight: 600;
+			cursor: pointer;
+		}
+	`]
 })
-export class RegisterComponent implements OnInit {
-  registerData: CreateUsuarioRequest = {
-    email: '',
-    password: '',
-    contraseña: '',
-    nombre: '',
-    apellido: '',
-    nombre_usuario: '',
-    telefono: '',
-    es_admin: false
-  };
-  
-  loading = false;
+export class RegisterComponent {
+	@ViewChild('registerForm', { static: false }) private formRef?: NgForm;
 
-  constructor(
-    private usuarioService: UsuarioService,
-    private notificationService: NotificationService,
-    private router: Router
-  ) { }
+	registerData: RegisterData = this.createInitialData();
+	loading = false;
 
-  ngOnInit(): void {
-    // Si ya está autenticado, redirigir al dashboard
-    // TODO: Implementar verificación de autenticación
-  }
+	constructor(
+		private readonly usuarioService: UsuarioService,
+		private readonly notificationService: NotificationService,
+		private readonly router: Router
+	) {}
 
-  onSubmit(): void {
-    if (this.loading) return;
+	onSubmit(): void {
+		if (this.loading) {
+			return;
+		}
 
-    this.loading = true;
-    
-    this.usuarioService.createUsuario(this.registerData).subscribe({
-      next: (response) => {
-        this.notificationService.showSuccess('Usuario registrado exitosamente');
-        this.router.navigate(['/auth/login']);
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Error en registro:', error);
-        this.notificationService.showError('Error al registrar usuario. Intenta nuevamente.');
-        this.loading = false;
-      }
-    });
-  }
+		const form = this.formRef;
+		if (form && form.invalid) {
+			form.form.markAllAsTouched();
+			return;
+		}
+
+		if (this.registerData.password !== this.registerData.confirmPassword) {
+			this.notificationService.showError('Las contraseñas no coinciden.');
+			return;
+		}
+
+		const payload: UsuarioCreate = {
+			nombre: this.registerData.nombre.trim(),
+			apellido: this.registerData.apellido.trim(),
+			email: this.registerData.email.trim(),
+			password: this.registerData.password,
+			numero_documento: this.registerData.numero_documento.trim(),
+			id_rol: this.registerData.id_rol ?? '',
+			id_tipo_documento: this.registerData.id_tipo_documento ?? '',
+			id_sexo: this.registerData.id_sexo || null,
+			id_usuario_crea: null
+		};
+
+		if (this.registerData.esAdmin) {
+			payload.id_rol = payload.id_rol || 'admin';
+		}
+
+		this.loading = true;
+		this.usuarioService.create(payload).subscribe({
+			next: () => this.handleSuccess(),
+			error: error => this.handleError(error)
+		});
+	}
+
+	private handleSuccess(): void {
+		this.notificationService.showSuccess('Usuario registrado exitosamente.');
+		this.resetFormState();
+		this.router.navigate(['/auth/login']);
+		this.loading = false;
+	}
+
+	private handleError(error: unknown): void {
+		console.error('Error al registrar usuario', error);
+		this.notificationService.showError('Error al registrar usuario. Intente nuevamente.');
+		this.loading = false;
+	}
+
+	private resetFormState(): void {
+		this.formRef?.resetForm();
+		this.registerData = this.createInitialData();
+	}
+
+	private createInitialData(): RegisterData {
+		return {
+			nombre: '',
+			apellido: '',
+			email: '',
+			password: '',
+			confirmPassword: '',
+			numero_documento: '',
+			id_rol: '',
+			id_tipo_documento: '',
+			id_sexo: null,
+			id_usuario_crea: null,
+			telefono: '',
+			esAdmin: false
+		};
+	}
 }

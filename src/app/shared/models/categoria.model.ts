@@ -1,46 +1,31 @@
-/**
- * Modelo para la entidad Categoría
- */
+/** Categoría de productos con nombre, descripción y trazabilidad. */
 export interface Categoria {
-  id_categoria: string; // UUID
-  id: string; // Alias for id_categoria for frontend compatibility
-  nombre: string;
-  descripcion?: string;
-  activa: boolean; // Status field
-  fecha_creacion: string;
-  fecha_edicion?: string;
+	id: string;
+	nombre: string;
+	descripcion: string;
+	fecha_creacion?: string;
+	fecha_actualizacion?: string;
 }
 
-/**
- * Modelo para crear una nueva categoría
- */
-export interface CreateCategoriaRequest {
-  nombre: string;
-  descripcion?: string;
+/** Datos básicos requeridos para registrar una categoría nueva. */
+export interface CategoriaCreate {
+	nombre: string;
+	descripcion: string;
 }
 
-/**
- * Modelo para actualizar una categoría
- */
-export interface UpdateCategoriaRequest {
-  nombre?: string;
-  descripcion?: string;
+/** Campos modificables utilizados en la actualización de categorías. */
+export interface CategoriaUpdate {
+	nombre?: string;
+	descripcion?: string;
 }
 
-/**
- * Modelo para filtros de categorías
- */
 export interface CategoriaFilters {
-  nombre?: string;
-  activa?: boolean; // Status filter
+	nombre?: string;
 }
 
-/**
- * Modelo para respuesta paginada de categorías
- */
 export interface CategoriaListResponse {
-  data: Categoria[];
-  totalPages: number;
-  currentPage: number;
-  totalItems: number;
+	data: Categoria[];
+	totalItems: number;
+	totalPages: number;
+	currentPage: number;
 }

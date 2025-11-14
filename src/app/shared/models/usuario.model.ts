@@ -1,69 +1,68 @@
-/**
- * Modelo para la entidad Usuario
- */
+/** Modelo de usuario con datos personales, relacionales y metadatos de auditoría. */
 export interface Usuario {
-  id: string; // UUID
-  nombre: string;
-  apellido?: string;
-  nombre_usuario: string;
-  email: string;
-  numero_documento?: string;
-  telefono?: string;
-  // IDs normalizadores devueltos por el backend
-  id_tipo_documento?: string;
-  id_sexo?: string;
-  id_rol?: string;
-  // Campos derivados opcionales si el backend los entrega ya resueltos
-  tipo_documento?: string;
-  genero?: string;
-  rol?: string;
-  activo: boolean;
-  es_admin: boolean;
-  fecha_creacion: string;
-  fecha_edicion?: string;
+	id: string;
+	nombre: string;
+	apellido: string;
+	email: string;
+	numero_documento: string;
+	id_rol: string;
+	id_tipo_documento: string;
+	id_sexo?: string | null;
+	activo?: boolean;
+	fecha_creacion?: string;
+	fecha_actualizacion?: string;
 }
 
-/**
- * Modelo para crear un nuevo usuario
- */
-export interface CreateUsuarioRequest {
-  nombre: string;
-  nombre_usuario: string;
-  email: string;
-  contraseña: string;
-  telefono?: string;
-  es_admin?: boolean;
-  password: string; // Alias for contraseña for frontend compatibility
-  apellido: string; // Additional field for frontend
+/** Payload requerido para registrar un usuario incluyendo credenciales y relaciones obligatorias. */
+export interface UsuarioCreate {
+	nombre: string;
+	apellido: string;
+	email: string;
+	password: string;
+	numero_documento: string;
+	id_rol: string;
+	id_tipo_documento: string;
+	id_sexo?: string | null;
+	id_usuario_crea?: string | null;
 }
 
-/**
- * Modelo para actualizar un usuario
- */
-export interface UpdateUsuarioRequest {
-  nombre?: string;
-  nombre_usuario?: string;
-  email?: string;
-  telefono?: string;
-  es_admin?: boolean;
-  activo?: boolean;
+/** Conjunto parcial de campos permitidos para actualizar un usuario existente. */
+export interface UsuarioUpdate {
+	nombre?: string;
+	apellido?: string;
+	email?: string;
+	password?: string;
+	numero_documento?: string;
+	id_rol?: string;
+	id_tipo_documento?: string;
+	id_sexo?: string | null;
+	activo?: boolean;
+	id_usuario_edita?: string | null;
 }
 
-/**
- * Modelo para cambiar contraseña
- */
-export interface ChangePasswordRequest {
-  contraseña_actual: string;
-  nueva_contraseña: string;
-}
-
-/**
- * Modelo para filtros de usuarios
- */
 export interface UsuarioFilters {
-  email?: string;
-  nombre?: string;
-  nombre_usuario?: string;
-  activo?: boolean;
-  es_admin?: boolean;
+	nombre?: string;
+	email?: string;
+	id_rol?: string;
+	id_tipo_documento?: string;
+	activo?: boolean;
+}
+
+export interface UsuarioListResponse {
+	data: Usuario[];
+	totalItems: number;
+	totalPages: number;
+	currentPage: number;
+}
+
+/** Compat: shape usado por el viejo formulario de registro */
+export interface CreateUsuarioRequest {
+	nombre?: string;
+	apellido?: string;
+	email?: string;
+	password?: string;
+	contraseña?: string;
+	nombre_usuario?: string;
+	telefono?: string;
+	es_admin?: boolean;
 }

@@ -1,59 +1,50 @@
-/**
- * Modelo para la entidad Usuario
- */
+/** Carrito de compras con estado, items asociados y metadatos de auditoría. */
 export interface Carrito {
-  id: string; // UUID
-  nombre: string;
-  nombre_usuario: string;
-  email: string;
-  telefono?: string;
-  activo: boolean;
-  es_admin: boolean;
-  fecha_creacion: string;
-  fecha_edicion?: string;
+	id: string;
+	id_usuario: string;
+	activo: boolean;
+	estado?: string;
+	// Items pueden venir tipados (CarritoItem[]) o como objetos enriquecidos desde el backend
+	items?: any[];
+	fecha_creacion?: string;
+	fecha_actualizacion?: string;
+
+	// Relaciones enriquecidas opcionales devueltas por el backend
+	usuario?: import('./usuario.model').Usuario | null;
 }
 
-/**
- * Modelo para crear un nuevo usuario
- */
-export interface CreateUsuarioRequest {
-  nombre: string;
-  nombre_usuario: string;
-  email: string;
-  contraseña: string;
-  telefono?: string;
-  es_admin?: boolean;
-  password: string; // Alias for contraseña for frontend compatibility
-  apellido: string; // Additional field for frontend
+/** Item contenido en un carrito con referencias de producto y precio. */
+export interface CarritoItem {
+	id: string;
+	id_carrito: string;
+	id_producto: string;
+	cantidad: number;
+	precio_unitario: number;
+	fecha_creacion?: string;
+	fecha_actualizacion?: string;
 }
 
-/**
- * Modelo para actualizar un usuario
- */
-export interface UpdateUsuarioRequest {
-  nombre?: string;
-  nombre_usuario?: string;
-  email?: string;
-  telefono?: string;
-  es_admin?: boolean;
-  activo?: boolean;
+/** Payload para obtener o crear carritos activos por usuario. */
+export interface CarritoCreate {
+	id_usuario: string;
+	id_usuario_crea?: string | null;
 }
 
-/**
- * Modelo para cambiar contraseña
- */
-export interface ChangePasswordRequest {
-  contraseña_actual: string;
-  nueva_contraseña: string;
+/** Campos permitidos para actualizar el estado o auditoría del carrito. */
+export interface CarritoUpdate {
+	estado?: string;
+	activo?: boolean;
+	id_usuario_edita?: string | null;
 }
 
-/**
- * Modelo para filtros de usuarios
- */
-export interface UsuarioFilters {
-  email?: string;
-  nombre?: string;
-  nombre_usuario?: string;
-  activo?: boolean;
-  es_admin?: boolean;
+export interface CarritoFilters {
+	id_usuario?: string;
+	activo?: boolean;
+}
+
+export interface CarritoListResponse {
+	data: Carrito[];
+	totalItems: number;
+	totalPages: number;
+	currentPage: number;
 }

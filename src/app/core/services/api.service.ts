@@ -34,7 +34,8 @@ export class ApiService {
     let httpParams = new HttpParams();
     
     // Agregar parámetros de paginación
-    httpParams = httpParams.set('skip', pagination.page.toString());
+    const skip = Math.max(0, (pagination.page - 1) * pagination.limit);
+    httpParams = httpParams.set('skip', skip.toString());
     httpParams = httpParams.set('limit', pagination.limit.toString());
     
     if (pagination.sort) {

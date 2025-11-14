@@ -1,0 +1,87 @@
+/* Footer: clean, subtle, matches dark sidebar palette */
+:root{
+  --footer-bg: #0b1220; /* very dark blue */
+  --footer-ink: #e6f0fb; /* brighter light text for contrast */
+  --footer-muted: #9fb3c8; /* muted text */
+  --accent: #38bdf8; /* cyan accent */
+}
+
+.footer {
+	background: linear-gradient(180deg, rgba(15,23,42,0.95), rgba(11,18,32,0.98));
+	color: var(--footer-ink);
+	padding: 18px 20px;
+	font-family: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, system-ui;
+	font-size: 14px;
+	line-height: 1.45;
+	border-top: 1px solid rgba(148,163,184,0.06);
+}
+
+.footer .container-fluid {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.footer nav ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	gap: 14px;
+	align-items: center;
+}
+
+.footer nav a {
+	color: #d6e8f7; /* brighter link color */
+	text-decoration: none;
+	transition: color .12s ease, transform .12s ease;
+	font-weight: 500;
+}
+
+.footer nav a:hover {
+	color: var(--accent);
+	transform: translateY(-1px);
+}
+
+.footer .copyright {
+	color: rgba(230,240,251,0.95);
+	font-size: 13px;
+	opacity: 0.95;
+}
+
+/* Make links inside copyright more visible: bold white */
+.footer .copyright a {
+	color: #ffffff !important;
+	font-weight: 700;
+	text-decoration: none;
+	border-bottom: none !important;
+}
+
+.footer .copyright a:hover {
+	color: #ffffff;
+	text-decoration: underline;
+}
+
+/* small screens: stack */
+@media (max-width: 640px) {
+	.footer .container-fluid {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+	.footer nav ul {
+		gap: 10px;
+		margin-top: 8px;
+	}
+}
+
+/* subtle link accent */
+.footer a[title], .footer a[href] {
+	border-bottom: 1px dashed transparent;
+}
+
+.footer a[title]:hover, .footer a[href]:hover {
+	border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
