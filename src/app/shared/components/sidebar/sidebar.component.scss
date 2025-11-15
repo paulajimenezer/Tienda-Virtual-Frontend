@@ -217,6 +217,56 @@
   flex: 1; /* take remaining space so icon + text align left */
 }
 
+/* Shared menu-button to style both top-links and group headers uniformly */
+.menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  color: rgba(226, 232, 240, 0.92);
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid transparent;
+  padding: 8px 10px; /* match .group-header */
+  border-radius: 10px;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1; /* help vertical centering */
+  min-height: 40px; /* ensure consistent height with group headers */
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.menu-button i {
+  font-size: 16px;
+  width: 28px;
+  text-align: center;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.menu-button p,
+.menu-button span {
+  margin: 0;
+  flex: 1;
+  text-align: left;
+}
+
+.menu-button:hover {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+}
+
+.menu-button.active {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #e0f2fe;
+  box-shadow: 0 16px 28px rgba(14, 165, 233, 0.22);
+}
+
 .groups {
   display: flex;
   flex-direction: column;
@@ -251,6 +301,7 @@
   letter-spacing: 0.08em;
   font-weight: 600;
   transition: all 0.25s ease;
+  min-height: 40px; /* keep same height as .menu-button */
 }
 
 .groups .group-header > p {
@@ -265,12 +316,26 @@
 }
 
 .arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  min-width: 20px;
+  flex: 0 0 20px;
   font-size: 18px;
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
+  transform-origin: center center;
+  margin-left: 8px;
 }
 
 .arrow.rotated {
   transform: rotate(90deg);
+}
+
+/* Keep the arrow inside the header and avoid overflow when rotating */
+.groups .group-header {
+  overflow: hidden;
+  gap: 8px; /* small gap between icon/text and arrow */
 }
 
 .sub-menu {
