@@ -12,19 +12,19 @@
       <section class="feature__filters">
         <div class="filters__row">
           <label>
-            <span>Usuario</span>
-            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Filtrar por usuario" />
+            <span>Usuario (nombre)</span>
+            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Ingresa nombre o apellido" />
           </label>
           <label>
-            <span>Estado</span>
+            <span>Estado del pedido</span>
             <select [(ngModel)]="filters.estado" (change)="onFilterChange()">
               <option value="">Todos</option>
               <option *ngFor="let estado of estados" [value]="estado">{{ estado }}</option>
             </select>
           </label>
           <label>
-            <span>Fecha</span>
-            <input type="date" [(ngModel)]="filters.fecha" (change)="onFilterChange()" />
+            <span>Fecha (AAAA-MM-DD)</span>
+            <input type="date" [(ngModel)]="filters.fecha" (change)="onFilterChange()" placeholder="Selecciona una fecha" />
           </label>
           <button type="button" class="btn btn--ghost" (click)="clearFilters()">Limpiar</button>
         </div>

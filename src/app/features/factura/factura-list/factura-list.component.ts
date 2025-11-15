@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { FacturaService } from '../../../core/services/factura.service';
 import { Factura, FacturaCreate, FacturaUpdate } from '../../../shared/models/factura.model';
 import { Pedido } from '../../../shared/models/pedido.model';
 import { environment } from '../../../../environments/environment';
@@ -19,6 +20,7 @@ export class FacturaListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly facturaService = inject(FacturaService);
 
   facturas: Factura[] = [];
   private allFacturas: Factura[] = [];
@@ -36,11 +38,13 @@ export class FacturaListComponent implements OnInit {
 
   isAdmin = false;
   private currentUserId: string | null = null;
+  private serverFilterSnapshot = { usuario: '' };
 
   filters = {
     numero: '',
     pedido: '',
-    fecha: ''
+    fecha: '',
+    usuario: ''
   };
 
   currentPage = 1;
@@ -69,23 +73,38 @@ export class FacturaListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.http.get<Factura[]>(`${this.apiUrl}/facturas/`).subscribe({
+    const usuarioFilter = this.filters.usuario.trim();
+    if (usuarioFilter && !this.isValidUuid(usuarioFilter)) {
+      this.handleInvalidUsuarioFilter();
+      return;
+    }
+
+    const request$ = usuarioFilter
+      ? this.facturaService.listByUsuario(usuarioFilter)
+      : (this.isAdmin || !this.currentUserId
+          ? this.facturaService.list()
+          : this.facturaService.listByUsuario(this.currentUserId)
+        );
+
+    request$.subscribe({
       next: facturas => {
-        const list = facturas ?? [];
-        if (this.isAdmin || !this.currentUserId) {
-          this.allFacturas = list;
-        } else {
-          // Filtrar sólo facturas cuyo pedido pertenece al usuario actual
-          this.allFacturas = list.filter(f => (f.pedido?.id_usuario ?? f.usuario?.id) === this.currentUserId);
+        const list = this.enforceUserScope(facturas ?? []);
+        this.allFacturas = list;
+        if (usuarioFilter && list.length === 0) {
+          this.errorMessage = 'No se encontraron facturas para ese usuario.';
         }
         this.currentPage = 1;
         this.applyFilters();
         this.loading = false;
+        this.updateServerFilterSnapshot();
       },
       error: err => {
-        this.errorMessage = 'No fue posible cargar las facturas.';
+        this.errorMessage = usuarioFilter
+          ? 'No fue posible cargar las facturas para ese usuario.'
+          : 'No fue posible cargar las facturas.';
         console.error(err);
         this.loading = false;
+        this.updateServerFilterSnapshot();
       }
     });
 
@@ -136,12 +155,16 @@ export class FacturaListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
-    this.filters = { numero: '', pedido: '', fecha: '' };
-    this.onFilterChange();
+    this.filters = { numero: '', pedido: '', fecha: '', usuario: '' };
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -227,7 +250,7 @@ export class FacturaListComponent implements OnInit {
     if (this.editingId) {
       const payload: FacturaUpdate = basePayload;
       payload.id_usuario_edita = this.currentUserId ?? undefined;
-      this.http.put<Factura>(`${this.apiUrl}/facturas/${this.editingId}/`, payload).subscribe({
+      this.facturaService.update(this.editingId, payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -242,7 +265,7 @@ export class FacturaListComponent implements OnInit {
     } else {
       const payload: FacturaCreate = basePayload;
       payload.id_usuario_crea = this.currentUserId ?? undefined;
-      this.http.post<Factura>(`${this.apiUrl}/facturas/`, payload).subscribe({
+      this.facturaService.create(payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -262,7 +285,7 @@ export class FacturaListComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.http.delete(`${this.apiUrl}/facturas/${factura.id}/`).subscribe({
+    this.facturaService.delete(factura.id).subscribe({
       next: () => {
         this.loadData();
         if (this.editingId === factura.id) {
@@ -361,5 +384,31 @@ export class FacturaListComponent implements OnInit {
     const price = this.getFacturaItemUnitPrice(item);
     if (Number.isNaN(qty) || price == null) return null;
     return qty * price;
+  }
+
+  private enforceUserScope(facturas: Factura[]): Factura[] {
+    if (this.isAdmin || !this.currentUserId) {
+      return facturas;
+    }
+    const userId = this.currentUserId;
+    return facturas.filter(f => (f.pedido?.id_usuario ?? f.usuario?.id) === userId);
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return this.filters.usuario.trim() !== this.serverFilterSnapshot.usuario;
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = { usuario: this.filters.usuario.trim() };
+  }
+
+  private isValidUuid(value: string): boolean {
+    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value);
+  }
+
+  private handleInvalidUsuarioFilter(): void {
+    this.errorMessage = 'Ingresa un ID de usuario válido (UUID).';
+    this.loading = false;
+    this.updateServerFilterSnapshot();
   }
 }

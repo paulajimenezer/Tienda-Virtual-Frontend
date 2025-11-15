@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
+import { CarritoService } from '../../../core/services/carrito.service';
 import { Carrito, CarritoCreate, CarritoUpdate } from '../../../shared/models/carrito.model';
 import { environment } from '../../../../environments/environment';
 
@@ -18,6 +19,7 @@ export class CarritoListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly carritoService = inject(CarritoService);
 
   isAdmin = false;
   private currentUserId: string | null = null;
@@ -26,6 +28,7 @@ export class CarritoListComponent implements OnInit {
   expandedCarritos = new Set<string>();
   private allCarritos: Carrito[] = [];
   private filteredCarritos: Carrito[] = [];
+  private serverFilterSnapshot = { usuario: '' };
   loading = false;
   saving = false;
   editingId: string | null = null;
@@ -59,11 +62,20 @@ export class CarritoListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    const endpoint = this.isAdmin || !this.currentUserId
-      ? `${this.apiUrl}/carritos/`
-      : `${this.apiUrl}/carritos/usuario/${this.currentUserId}/`;
+    const usuarioFilter = this.filters.usuario.trim();
+    if (usuarioFilter && !this.isValidUuid(usuarioFilter)) {
+      this.handleInvalidUsuarioFilter();
+      return;
+    }
 
-    this.http.get<Carrito[]>(endpoint).subscribe({
+    const request$ = usuarioFilter
+      ? this.carritoService.listByUsuario(usuarioFilter)
+      : (this.isAdmin || !this.currentUserId
+          ? this.carritoService.list()
+          : this.carritoService.listByUsuario(this.currentUserId)
+        );
+
+    request$.subscribe({
       next: data => {
         this.allCarritos = data ?? [];
         this.estadoOptions = Array.from(
@@ -71,30 +83,34 @@ export class CarritoListComponent implements OnInit {
         );
         this.currentPage = 1;
         this.applyFilters();
+        if (usuarioFilter && this.allCarritos.length === 0) {
+          this.errorMessage = 'No se encontraron carritos para ese usuario.';
+        }
         this.loading = false;
+        this.updateServerFilterSnapshot();
       },
       error: err => {
-        this.errorMessage = 'No fue posible cargar los carritos.';
+        this.errorMessage = usuarioFilter
+          ? 'No fue posible cargar los carritos para ese usuario.'
+          : 'No fue posible cargar los carritos.';
         console.error(err);
         this.loading = false;
+        this.updateServerFilterSnapshot();
       }
     });
   }
 
   private applyFilters(): void {
-    const termUsuario = this.filters.usuario.trim().toLowerCase();
     const estadoFiltro = this.filters.estado.trim().toLowerCase();
     const activoFiltro = this.filters.activo;
 
     this.filteredCarritos = this.allCarritos.filter(carrito => {
-      const usuarioNombre = (carrito.usuario ? `${carrito.usuario.nombre ?? ''} ${carrito.usuario.apellido ?? ''}`.trim() : '') || (carrito.id_usuario ?? '');
-      const matchesUsuario = !termUsuario || usuarioNombre.toLowerCase().includes(termUsuario);
       const matchesEstado = !estadoFiltro || (carrito.estado ?? '').toLowerCase() === estadoFiltro;
       const matchesActivo =
         activoFiltro === '' ||
         (activoFiltro === 'true' && carrito.activo !== false) ||
         (activoFiltro === 'false' && carrito.activo === false);
-      return matchesUsuario && matchesEstado && matchesActivo;
+      return matchesEstado && matchesActivo;
     });
 
     this.totalPages = Math.max(1, Math.ceil(this.filteredCarritos.length / this.pageSize));
@@ -107,7 +123,11 @@ export class CarritoListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
@@ -116,7 +136,7 @@ export class CarritoListComponent implements OnInit {
       estado: '',
       activo: ''
     };
-    this.onFilterChange();
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -183,7 +203,7 @@ export class CarritoListComponent implements OnInit {
         activo: typeof activo === 'boolean' ? activo : undefined,
         id_usuario_edita: this.currentUserId ?? null
       };
-      this.http.put<Carrito>(`${this.apiUrl}/carritos/${this.editingId}/`, payload).subscribe({
+      this.carritoService.update(this.editingId, payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -200,7 +220,7 @@ export class CarritoListComponent implements OnInit {
         id_usuario: usuarioId,
         id_usuario_crea: this.currentUserId
       };
-      this.http.post<Carrito>(`${this.apiUrl}/carritos/`, payload).subscribe({
+      this.carritoService.create(payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -304,5 +324,23 @@ export class CarritoListComponent implements OnInit {
     const price = this.getItemUnitPrice(item);
     if (Number.isNaN(qty) || price == null) return null;
     return qty * price;
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return this.filters.usuario.trim() !== this.serverFilterSnapshot.usuario;
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = { usuario: this.filters.usuario.trim() };
+  }
+
+  private isValidUuid(value: string): boolean {
+    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value);
+  }
+
+  private handleInvalidUsuarioFilter(): void {
+    this.errorMessage = 'Ingresa un ID de usuario válido (UUID).';
+    this.loading = false;
+    this.updateServerFilterSnapshot();
   }
 }
