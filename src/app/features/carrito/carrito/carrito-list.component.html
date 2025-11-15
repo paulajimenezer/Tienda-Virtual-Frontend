@@ -12,8 +12,8 @@
       <section class="feature__filters">
         <div class="filters__row">
           <label *ngIf="isAdmin">
-            <span>Usuario</span>
-            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Filtrar por usuario" />
+            <span>Usuario (ID)</span>
+            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Ej. 123e4567-e89b-12d3-a456-426614174000" />
           </label>
           <label>
             <span>Estado</span>

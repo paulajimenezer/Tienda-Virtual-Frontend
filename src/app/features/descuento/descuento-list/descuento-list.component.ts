@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
+import { DescuentoService } from '../../../core/services/descuento.service';
 import { Descuento, DescuentoCreate, DescuentoUpdate } from '../../../shared/models/descuento.model';
-import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-descuento-list',
@@ -14,15 +15,15 @@ import { environment } from '../../../../environments/environment';
   styleUrls: ['./descuento-list.component.scss']
 })
 export class DescuentoListComponent implements OnInit {
-  private readonly http = inject(HttpClient);
   private readonly fb = inject(FormBuilder);
-  private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly descuentoService = inject(DescuentoService);
 
   descuentos: Descuento[] = [];
   private allDescuentos: Descuento[] = [];
   private filteredDescuentos: Descuento[] = [];
   private currentUserId: string | null = null;
+  private serverFilterSnapshot = { codigo: '' };
   loading = false;
   saving = false;
   editingId: string | null = null;
@@ -59,12 +60,29 @@ export class DescuentoListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.http.get<Descuento[]>(`${this.apiUrl}/descuentos/`).subscribe({
+    const codigo = this.filters.codigo.trim();
+    const request$ = codigo
+      ? this.descuentoService.getByCodigo(codigo).pipe(
+          map(descuento => (descuento ? [descuento] : [])),
+          catchError(err => {
+            if (err.status === 404) {
+              return of([]);
+            }
+            return throwError(() => err);
+          })
+        )
+      : this.descuentoService.list();
+
+    request$.subscribe({
       next: data => {
         this.allDescuentos = data ?? [];
+        if (codigo && this.allDescuentos.length === 0) {
+          this.errorMessage = 'No se encontraron descuentos con ese código.';
+        }
         this.currentPage = 1;
         this.applyFilters();
         this.loading = false;
+        this.updateServerFilterSnapshot();
       },
       error: err => {
         this.errorMessage = 'No fue posible cargar los descuentos.';
@@ -99,12 +117,16 @@ export class DescuentoListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
     this.filters = { codigo: '', activo: '', fecha: '' };
-    this.onFilterChange();
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -202,7 +224,7 @@ export class DescuentoListComponent implements OnInit {
         ...basePayload,
         id_usuario_edita: this.currentUserId ?? undefined
       };
-      this.http.put<Descuento>(`${this.apiUrl}/descuentos/${this.editingId}/`, payload).subscribe({
+      this.descuentoService.update(this.editingId, payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -219,7 +241,7 @@ export class DescuentoListComponent implements OnInit {
         ...basePayload,
         id_usuario_crea: this.currentUserId ?? undefined
       };
-      this.http.post<Descuento>(`${this.apiUrl}/descuentos/`, payload).subscribe({
+      this.descuentoService.create(payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -243,7 +265,7 @@ export class DescuentoListComponent implements OnInit {
       activo: false,
       id_usuario_edita: this.currentUserId ?? undefined
     };
-    this.http.put(`${this.apiUrl}/descuentos/${descuento.id}/`, payload).subscribe({
+    this.descuentoService.update(descuento.id, payload).subscribe({
       next: () => {
         this.loadData();
         if (this.editingId === descuento.id) {
@@ -257,5 +279,13 @@ export class DescuentoListComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return this.filters.codigo.trim() !== this.serverFilterSnapshot.codigo;
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = { codigo: this.filters.codigo.trim() };
   }
 }

@@ -22,6 +22,11 @@ export class CategoriaService {
 		return this.http.get<Categoria>(`${this.apiUrl}/${id}`);
 	}
 
+	getByNombre(nombre: string): Observable<Categoria> {
+		const encoded = encodeURIComponent(nombre.trim());
+		return this.http.get<Categoria>(`${this.apiUrl}/nombre/${encoded}`);
+	}
+
 	create(payload: CategoriaCreate): Observable<Categoria> {
 		return this.http.post<Categoria>(this.apiUrl, payload);
 	}

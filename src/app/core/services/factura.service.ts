@@ -22,6 +22,10 @@ export class FacturaService {
 		return this.http.get<Factura[]>(this.apiUrl, { params });
 	}
 
+	listByUsuario(usuarioId: string): Observable<Factura[]> {
+		return this.http.get<Factura[]>(`${this.apiUrl}/usuario/${usuarioId}`);
+	}
+
 	getById(id: string): Observable<Factura> {
 		return this.http.get<Factura>(`${this.apiUrl}/${id}`);
 	}
