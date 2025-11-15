@@ -7,6 +7,7 @@ import { UsuarioService } from '../../../core/services/usuario.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Usuario, UsuarioCreate, UsuarioUpdate, UsuarioFilters } from '../../../shared/models/usuario.model';
 import { environment } from '../../../../environments/environment';
+import { catchError, map, of, throwError } from 'rxjs';
 
 @Component({
   selector: 'app-usuario-list',
@@ -44,6 +45,7 @@ export class UsuarioListComponent implements OnInit {
   private allUsuarios: Usuario[] = [];
   private filteredUsuarios: Usuario[] = [];
   private currentUserId: string | null = null;
+  private lastFetchUsedEmail = false;
 
   filters = {
     nombre: '',
@@ -93,21 +95,37 @@ export class UsuarioListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    
-    console.log('🔍 Cargando usuarios desde:', `${this.apiUrl}/usuarios/`);
-    console.log('🔑 Token en localStorage:', localStorage.getItem('auth_token') ? 'SÍ' : 'NO');
-    
-    this.http.get<Usuario[]>(`${this.apiUrl}/usuarios/`).subscribe({
+    const normalizedFilters = this.buildFilters();
+    const emailTerm = normalizedFilters.email ?? '';
+    const useEmailEndpoint = emailTerm.length > 0;
+    this.lastFetchUsedEmail = useEmailEndpoint;
+
+    console.log('🔍 Cargando usuarios desde:', this.usersEndpoint);
+    console.log('📧 Filtro email aplicado:', useEmailEndpoint ? emailTerm : 'Ninguno');
+
+    const request$ = useEmailEndpoint
+      ? this.usuarioService.getByEmail(emailTerm).pipe(
+          map(usuario => (usuario ? [usuario] : [])),
+          catchError(err => {
+            if (err.status === 404) {
+              return of([]);
+            }
+            return throwError(() => err);
+          })
+        )
+      : this.usuarioService.list();
+
+    request$.subscribe({
       next: data => {
-        console.log('✅ Usuarios recibidos:', data.length);
         this.allUsuarios = data ?? [];
+        if (useEmailEndpoint && this.allUsuarios.length === 0) {
+          this.errorMessage = 'No se encontró un usuario con ese correo.';
+        }
         this.applyFilters();
         this.loading = false;
       },
       error: err => {
         console.error('❌ Error al cargar usuarios:', err);
-        console.error('Status:', err.status);
-        console.error('Detail:', err.error);
         this.errorMessage = 'No fue posible cargar los usuarios.';
         this.loading = false;
       }
@@ -140,12 +158,18 @@ export class UsuarioListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    const emailTerm = this.filters.email.trim();
+    if (emailTerm || this.lastFetchUsedEmail) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
     this.filters = { nombre: '', email: '', activo: '' };
-    this.onFilterChange();
+    this.lastFetchUsedEmail = false;
+    this.loadData();
   }
 
   goToPage(page: number): void {

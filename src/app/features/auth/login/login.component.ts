@@ -16,74 +16,82 @@ interface LoginFormData {
 	standalone: true,
 	imports: [CommonModule, FormsModule],
 	template: `
-		<div class="auth-wrapper">
-			<div class="auth-card">
-				<h1>Iniciar sesión</h1>
-				<form #loginForm="ngForm" (ngSubmit)="onSubmit()">
-					<label>
-						Correo electrónico
+		<div class="auth-card">
+			<h1>Iniciar sesión</h1>
+			<form #loginForm="ngForm" (ngSubmit)="onSubmit()">
+				<label>
+					Correo electrónico
+					<input
+						type="email"
+						name="email"
+						required
+						[(ngModel)]="credentials.email"
+						[disabled]="loading"
+					/>
+				</label>
+
+				<label class="password-field">
+					Contraseña
+					<div class="password-input">
 						<input
-							type="email"
-							name="email"
+							[type]="passwordVisible ? 'text' : 'password'"
+							name="password"
 							required
-							[(ngModel)]="credentials.email"
+							minlength="6"
+							[(ngModel)]="credentials.password"
 							[disabled]="loading"
 						/>
-					</label>
+						<button type="button" (click)="togglePasswordVisibility()" [disabled]="loading">
+							{{ passwordVisible ? 'Ocultar' : 'Mostrar' }}
+						</button>
+					</div>
+				</label>
 
-					<label class="password-field">
-						Contraseña
-						<div class="password-input">
-							<input
-								[type]="passwordVisible ? 'text' : 'password'"
-								name="password"
-								required
-								minlength="6"
-								[(ngModel)]="credentials.password"
-								[disabled]="loading"
-							/>
-							<button type="button" (click)="togglePasswordVisibility()" [disabled]="loading">
-								{{ passwordVisible ? 'Ocultar' : 'Mostrar' }}
-							</button>
-						</div>
-					</label>
+				<label class="remember">
+					<input
+						type="checkbox"
+						name="rememberMe"
+						[(ngModel)]="credentials.rememberMe"
+						[disabled]="loading"
+					/>
+					Recordarme
+				</label>
 
-					<label class="remember">
-						<input
-							type="checkbox"
-							name="rememberMe"
-							[(ngModel)]="credentials.rememberMe"
-							[disabled]="loading"
-						/>
-						Recordarme
-					</label>
-
-					<button type="submit" [disabled]="loading || !loginForm.valid">
-						{{ loading ? 'Ingresando...' : 'Ingresar' }}
-					</button>
-				</form>
-
-				<button class="link" type="button" (click)="loginAsDemo()" [disabled]="loading">
-					Usar cuenta demo
+				<button type="submit" [disabled]="loading || !loginForm.valid">
+					{{ loading ? 'Ingresando...' : 'Ingresar' }}
 				</button>
-			</div>
+			</form>
 		</div>
 	`,
-	styles: [`
-		.auth-wrapper {
-			display: grid;
-			place-items: center;
+	styles: [
+		`:host {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
 			min-height: 100vh;
-			background: linear-gradient(135deg, #0f172a, #1e293b);
-			padding: 1.5rem;
+			padding: 2.5rem 1.5rem;
+			box-sizing: border-box;
 		}
+
 		.auth-card {
-			width: min(380px, 100%);
+			width: 100%;
+			max-width: 420px;
 			padding: 2rem;
-			border-radius: 1rem;
-			background: rgba(15, 23, 42, 0.85);
+			border-radius: 16px;
+			/* slightly more translucent so the overlay and public wrapper subtly show through */
+			background: rgba(15, 23, 42, 0.78);
 			color: white;
-			box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+			box-shadow: 0 24px 50px rgba(2,6,23,0.55);
+			backdrop-filter: blur(4px) saturate(110%);
+			position: relative;
+			z-index: 2;
+			transition: transform 0.18s ease, box-shadow 0.18s ease;
+		}
+
+		.auth-card:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 30px 60px rgba(2,6,23,0.7);
 		}
 		h1 {
 			margin: 0 0 1.5rem;
@@ -151,8 +159,8 @@ interface LoginFormData {
 			color: rgba(255, 255, 255, 0.8);
 			cursor: pointer;
 			text-decoration: underline;
-		}
-	`]
+		}`
+	]
 })
 export class LoginComponent {
 	@ViewChild('loginForm', { static: false }) private formRef?: NgForm;

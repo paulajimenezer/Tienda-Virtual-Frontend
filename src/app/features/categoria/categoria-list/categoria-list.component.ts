@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
+import { CategoriaService } from '../../../core/services/categoria.service';
 import { Categoria, CategoriaCreate, CategoriaUpdate } from '../../../shared/models/categoria.model';
-import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-categoria-list',
@@ -14,14 +15,14 @@ import { environment } from '../../../../environments/environment';
   styleUrls: ['./categoria-list.component.scss']
 })
 export class CategoriaListComponent implements OnInit {
-  private readonly http = inject(HttpClient);
   private readonly fb = inject(FormBuilder);
-  private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly categoriaService = inject(CategoriaService);
 
   categorias: Categoria[] = [];
   private allCategorias: Categoria[] = [];
   private filteredCategorias: Categoria[] = [];
+  private serverFilterSnapshot = { nombre: '' };
   loading = false;
   saving = false;
   editingId: string | null = null;
@@ -53,12 +54,29 @@ export class CategoriaListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.http.get<Categoria[]>(`${this.apiUrl}/categorias/`).subscribe({
+    const nombre = this.filters.nombre.trim();
+    const request$ = nombre
+      ? this.categoriaService.getByNombre(nombre).pipe(
+          map(categoria => (categoria ? [categoria] : [])),
+          catchError(err => {
+            if (err.status === 404) {
+              return of([]);
+            }
+            return throwError(() => err);
+          })
+        )
+      : this.categoriaService.list();
+
+    request$.subscribe({
       next: data => {
         this.allCategorias = data ?? [];
+        if (nombre && this.allCategorias.length === 0) {
+          this.errorMessage = 'No se encontraron categorías con ese nombre.';
+        }
         this.currentPage = 1;
         this.applyFilters();
         this.loading = false;
+        this.updateServerFilterSnapshot();
       },
       error: err => {
         this.errorMessage = 'No fue posible cargar las categorías.';
@@ -90,12 +108,16 @@ export class CategoriaListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
     this.filters = { nombre: '', descripcion: '' };
-    this.onFilterChange();
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -157,7 +179,7 @@ export class CategoriaListComponent implements OnInit {
         nombre: nombreValor,
         descripcion: descripcionValor
       };
-      this.http.put<Categoria>(`${this.apiUrl}/categorias/${this.editingId}/`, payload).subscribe({
+      this.categoriaService.update(this.editingId, payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -171,7 +193,7 @@ export class CategoriaListComponent implements OnInit {
       });
     } else {
       const payload: CategoriaCreate = { nombre: nombreValor, descripcion: descripcionValor };
-      this.http.post<Categoria>(`${this.apiUrl}/categorias/`, payload).subscribe({
+      this.categoriaService.create(payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -191,7 +213,7 @@ export class CategoriaListComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.http.delete(`${this.apiUrl}/categorias/${categoria.id}/`).subscribe({
+    this.categoriaService.delete(categoria.id).subscribe({
       next: () => {
         this.loadData();
         if (this.editingId === categoria.id) {
@@ -205,6 +227,14 @@ export class CategoriaListComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return this.filters.nombre.trim() !== this.serverFilterSnapshot.nombre;
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = { nombre: this.filters.nombre.trim() };
   }
 }
 

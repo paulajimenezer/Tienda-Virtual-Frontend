@@ -22,6 +22,10 @@ export class CarritoService {
 		return this.http.get<Carrito[]>(this.apiUrl, { params });
 	}
 
+	listByUsuario(usuarioId: string): Observable<Carrito[]> {
+		return this.http.get<Carrito[]>(`${this.apiUrl}/by-user/${usuarioId}`);
+	}
+
 	getById(id: string): Observable<Carrito> {
 		return this.http.get<Carrito>(`${this.apiUrl}/${id}`);
 	}

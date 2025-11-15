@@ -26,6 +26,19 @@ export class ProductoService {
 		return this.http.get<Producto>(`${this.apiUrl}/${id}`);
 	}
 
+	listByUsuario(usuarioId: string): Observable<Producto[]> {
+		return this.http.get<Producto[]>(`${this.apiUrl}/usuario/${usuarioId}`);
+	}
+
+	getByCategoria(categoriaId: string): Observable<Producto[]> {
+		return this.http.get<Producto[]>(`${this.apiUrl}/categoria/${categoriaId}`);
+	}
+
+	searchByNombre(nombre: string): Observable<Producto[]> {
+		const encoded = encodeURIComponent(nombre.trim());
+		return this.http.get<Producto[]>(`${this.apiUrl}/buscar/${encoded}`);
+	}
+
 	create(payload: ProductoCreate): Observable<Producto> {
 		return this.http.post<Producto>(this.apiUrl, payload);
 	}

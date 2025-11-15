@@ -1,55 +1,59 @@
-<div class="brand">
-    <a class="brand-link" [routerLink]="['/dashboard']" aria-label="Ir al panel principal">
-        <span class="brand-mark">🛒</span>
-        <span class="brand-meta">
-            <span class="brand-name">Tienda Virtual</span>
-            <span class="brand-tagline">Administración</span>
-        </span>
-    </a>
-</div>
-<div class="sidebar-wrapper">
-    <!-- Enlaces principales simples (ej: Dashboard) -->
-    <ul class="nav top-links">
-        <li *ngFor="let top of topLinks" routerLinkActive="active" class="nav-item">
-            <a class="menu-button" [routerLink]="[top.path]">
-                <i class="now-ui-icons {{top.icon}}"></i>
-                <p>{{ top.title }}</p>
-            </a>
-        </li>
-    </ul>
+<div class="sidebar-shell">
+  <div class="brand">
+      <div class="brand-link" title="Tienda Virtual">
+          <span class="brand-mark">🛒</span>
+          <span class="brand-meta">
+              <span class="brand-name">Tienda Virtual</span>
+              <span class="brand-tagline">Administración</span>
+          </span>
+      </div>
+  </div>
+  <div class="sidebar-wrapper">
+      <!-- Grupos con submenús (ahora incluye topLinks como primeros items) -->
+      <ul class="nav groups">
+          <ng-container *ngFor="let top of topLinks">
+              <li class="nav-item top-link-item" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+                  <a class="menu-button" [routerLink]="[top.path]">
+                      <i class="now-ui-icons {{top.icon}}"></i>
+                      <p>{{ top.title }}</p>
+                  </a>
+              </li>
+          </ng-container>
 
-    <!-- Grupos con submenús -->
-    <ul class="nav groups">
-        <li *ngFor="let g of menuGroups" class="nav-item group-item" [class.open]="openKey === g.key">
-            <div class="group-header menu-button" (click)="toggleGroup(g.key)" [attr.aria-expanded]="openKey === g.key">
-                <i class="now-ui-icons {{g.icon}}"></i>
-                <p>{{ g.title }}</p>
-                <span class="arrow" [class.rotated]="openKey === g.key">›</span>
-            </div>
-            <ul class="sub-menu" *ngIf="openKey === g.key">
-                <li *ngFor="let c of g.children" routerLinkActive="active" class="sub-item">
-                    <a class="sub-button" [routerLink]="[c.path]">
-                        <i class="now-ui-icons {{c.icon}}"></i>
-                        <span>{{ c.title }}</span>
-                    </a>
-                </li>
-            </ul>
-        </li>
-    </ul>
+          <li *ngFor="let g of menuGroups" class="nav-item group-item" [class.open]="openKey === g.key">
+              <div class="group-header menu-button" (click)="toggleGroup(g.key)" [attr.aria-expanded]="openKey === g.key">
+                  <i class="now-ui-icons {{g.icon}}"></i>
+                  <p>{{ g.title }}</p>
+                  <span class="arrow" [class.rotated]="openKey === g.key">›</span>
+              </div>
+              <ul class="sub-menu" *ngIf="openKey === g.key">
+                  <li *ngFor="let c of g.children"
+                      routerLinkActive="active"
+                      [routerLinkActiveOptions]="{ exact: true }"
+                      class="sub-item">
+                      <a class="sub-button" [routerLink]="[c.path]">
+                          <i class="now-ui-icons {{c.icon}}"></i>
+                          <span>{{ c.title }}</span>
+                      </a>
+                  </li>
+              </ul>
+          </li>
+      </ul>
 
-    <!-- Información del usuario y logout -->
-    <div class="user-info" *ngIf="authService.getCurrentUser()">
-        <div class="user-details">
-            <div class="user-avatar">
-                <img src="assets/usuario_icon.png" alt="Foto de perfil del usuario" />
-            </div>
-            <div class="user-text">
-                <div class="user-name">{{ authService.getCurrentUser()?.nombre }}</div>
-                <div class="user-role">{{ authService.isAdmin() ? 'Administrador' : 'Usuario' }}</div>
-            </div>
-        </div>
-        <button class="logout-btn" (click)="logout()" title="Cerrar Sesión">
-            <span>✖︎</span>
-        </button>
-    </div>
+      <!-- Información del usuario y logout -->
+      <div class="user-info" *ngIf="authService.getCurrentUser()">
+          <div class="user-details">
+              <div class="user-avatar">
+                  <img src="assets/usuario_icon.png" alt="Foto de perfil del usuario" />
+              </div>
+              <div class="user-text">
+                  <div class="user-name">{{ authService.getCurrentUser()?.nombre }}</div>
+                  <div class="user-role">{{ authService.isAdmin() ? 'Administrador' : 'Usuario' }}</div>
+              </div>
+          </div>
+          <button class="logout-btn" (click)="logout()" title="Cerrar Sesión">
+              <span>✖︎</span>
+          </button>
+      </div>
+  </div>
 </div>
