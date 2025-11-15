@@ -1,18 +1,20 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
 // Sidebar styling aligned with the login palette
-.sidebar {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 1000;
-  width: 260px;
+.sidebar-shell {
+  position: relative;
+  height: 100vh;
+  width: 100%;
   background: linear-gradient(140deg, #0f172a 0%, #1c2640 55%, #1e293b 100%);
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4);
   transition: all 0.3s ease;
   border-right: 1px solid rgba(148, 163, 184, 0.12);
 }
 
-.sidebar::before {
+.sidebar-shell::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -21,11 +23,11 @@
   pointer-events: none;
 }
 
-.sidebar[data-color="red"] {
+.sidebar-shell[data-color="red"] {
   background: linear-gradient(140deg, #0f172a 0%, #1c2640 55%, #1e293b 100%);
 }
 
-.sidebar > * {
+.sidebar-shell > * {
   position: relative;
   z-index: 1;
 }
@@ -33,6 +35,7 @@
 .brand {
   padding: 15px 22px 15px;
   position: relative;
+  cursor: pointer;
 }
 
 .brand:after {
@@ -97,65 +100,96 @@
   text-transform: uppercase;
 }
 
-.sidebar-wrapper {
-  position: relative;
-  height: calc(100vh - 75px);
-  width: 260px;
-  z-index: 4;
-  padding: 18px 18px 24px;
+
+.groups .top-link-item {
+  list-style: none;
+}
+
+.brand-meta {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  overflow: hidden;
+  gap: 2px;
+}
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.brand-tagline {
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.65);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.sidebar-wrapper {
+  position: relative;
+  height: calc(100vh - 70px);
+  width: 260px;
+  z-index: 4;
+  padding: 12px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* tighter spacing */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav {
   margin: 0;
   display: grid;
-  gap: 8px;
   flex: 1 1 auto;
-  overflow-y: auto;
-  padding-right: 4px;
+  overflow: visible;
+  padding-right: 0;
+  gap: 4px; /* reduce vertical gap between buttons */
 }
-
-.nav li {
+.nav-item {
   position: relative;
   list-style: none;
+  width: 100%;
 }
 
-.nav li > a {
+.nav-item > a {
   color: rgba(226, 232, 240, 0.8);
   display: flex;
   align-items: center;
-  gap: 12px;
   text-decoration: none;
   position: relative;
   text-transform: uppercase;
   cursor: pointer;
-  font-size: 12px;
-  padding: 12px 14px;
-  line-height: 1.6;
-  transition: all 0.3s ease;
-  border-radius: 14px;
-  background: rgba(148, 163, 184, 0.08);
+  font-size: 11px;
+  justify-content: flex-start; /* ensure content starts at left */
+  gap: 10px;
+  text-decoration: none;
+  position: relative;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 7px 10px; /* compact vertical size */
+  line-height: 1.4;
+  transition: all 0.2s ease;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.06);
   border: 1px solid transparent;
 }
 
-.nav li > a:hover {
+.nav-item > a:hover {
   background: rgba(148, 163, 184, 0.16);
   border-color: rgba(148, 163, 184, 0.2);
   color: #f8fafc;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
 }
 
-.nav li > a.active {
+.nav-item > a.active,
+.nav-item.active > a {
   background: rgba(14, 165, 233, 0.18);
   border-color: rgba(14, 165, 233, 0.35);
   color: #e0f2fe;
   box-shadow: 0 16px 28px rgba(14, 165, 233, 0.22);
 }
 
-.nav li > a.active::before {
+.nav-item > a.active::before {
   content: "";
   position: absolute;
   inset: 4px;
@@ -164,21 +198,133 @@
   pointer-events: none;
 }
 
-.nav li > a i {
-  font-size: 18px;
-  width: 34px;
+.nav-item > a i {
+  font-size: 16px;
+  width: 28px;
   text-align: center;
   color: inherit;
   flex-shrink: 0;
 }
 
-.nav li > a p {
+.nav-item > a p {
   margin: 0;
   line-height: 1.4;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   font-weight: 600;
   transition: 0.3s ease;
+  text-align: left; /* left align labels */
+  flex: 1; /* take remaining space so icon + text align left */
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-item {
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 14px;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.55);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.group-item.open {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(15, 23, 42, 0.75);
+  box-shadow: 0 18px 28px rgba(15, 23, 42, 0.35);
+}
+
+.groups .group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* keep arrow at right */
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.92);
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.groups .group-header > p {
+  margin: 0 8px;
+  flex: 1;
+  text-align: left; /* ensure header text is left aligned */
+}
+
+.group-item.open .group-header {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.arrow {
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.arrow.rotated {
+  transform: rotate(90deg);
+}
+
+.sub-menu {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: grid;
+  gap: 3%; /* tighter subitem spacing */
+}
+
+.sub-item {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Make sub-buttons visually match the top-level dashboard button */
+.sub-item .sub-button {
+  color: rgba(226, 232, 240, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 3%;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid transparent;
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.sub-item .sub-button:hover {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.25);
+}
+
+.sub-item.active .sub-button,
+.sub-item .sub-button.active {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #e0f2fe;
+  box-shadow: 0 16px 28px rgba(14, 165, 233, 0.22);
+}
+
+.sub-item .sub-button i {
+  font-size: 16px;
+  width: 28px;
+  text-align: center;
 }
 
 @media (max-width: 991px) {
@@ -209,6 +355,7 @@
 
 .user-info {
   margin-top: auto;
+  margin-bottom: 7%;
   align-self: stretch;
   padding: 14px 16px;
   background: rgba(15, 23, 42, 0.92);
