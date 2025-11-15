@@ -43,6 +43,11 @@ export class UsuarioService {
 		return this.apiService.post<Usuario>(this.endpoint, payload);
 	}
 
+	getByEmail(email: string): Observable<Usuario> {
+		const encoded = encodeURIComponent(email.trim());
+		return this.apiService.get<Usuario>(`${this.endpoint}/email/${encoded}`);
+	}
+
 	update(id: string, payload: UsuarioUpdate): Observable<Usuario> {
 		return this.apiService.put<Usuario>(`${this.endpoint}/${id}`, payload);
 	}

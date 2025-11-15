@@ -26,6 +26,11 @@ export class DescuentoService {
 		return this.http.get<Descuento>(`${this.apiUrl}/${id}`);
 	}
 
+	getByCodigo(codigo: string): Observable<Descuento> {
+		const encoded = encodeURIComponent(codigo.trim());
+		return this.http.get<Descuento>(`${this.apiUrl}/codigo/${encoded}`);
+	}
+
 	create(payload: DescuentoCreate): Observable<Descuento> {
 		return this.http.post<Descuento>(this.apiUrl, payload);
 	}

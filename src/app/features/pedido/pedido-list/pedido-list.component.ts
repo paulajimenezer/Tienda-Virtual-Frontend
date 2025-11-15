@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, map } from 'rxjs/operators';
+import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
+import { PedidoService } from '../../../core/services/pedido.service';
 import { Pedido, PedidoCreate, PedidoEstado, PedidoUpdate } from '../../../shared/models/pedido.model';
-import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-pedido-list',
@@ -14,14 +15,15 @@ import { environment } from '../../../../environments/environment';
   styleUrls: ['./pedido-list.component.scss']
 })
 export class PedidoListComponent implements OnInit {
-  private readonly http = inject(HttpClient);
   private readonly fb = inject(FormBuilder);
-  private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly pedidoService = inject(PedidoService);
 
   pedidos: Pedido[] = [];
   private allPedidos: Pedido[] = [];
   private filteredPedidos: Pedido[] = [];
+  private serverFilterSnapshot = { usuario: '' };
+  private lastServerUsuarioFilterApplied = false;
 
   loading = false;
   saving = false;
@@ -67,13 +69,32 @@ export class PedidoListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    const endpoint = this.isAdmin || !this.currentUserId
-      ? `${this.apiUrl}/pedidos/`
-      : `${this.apiUrl}/pedidos/usuario/${this.currentUserId}/`;
+    const usuarioTerm = this.filters.usuario.trim();
+    const usingServerUsuarioFilter = usuarioTerm.length > 0;
+    const request$ = usuarioTerm
+      ? this.pedidoService.searchByNombre(usuarioTerm).pipe(
+          map(pedidos => pedidos ?? []),
+          catchError(err => {
+            if (err.status === 404) {
+              return of([]);
+            }
+            return throwError(() => err);
+          })
+        )
+      : (this.isAdmin || !this.currentUserId
+          ? this.pedidoService.list()
+          : this.pedidoService.listByUsuario(this.currentUserId)
+        );
 
-    this.http.get<Pedido[]>(endpoint).subscribe({
+    request$.subscribe({
       next: data => {
-        this.allPedidos = data ?? [];
+        const scoped = this.enforceUserScope(data ?? []);
+        this.allPedidos = scoped;
+        if (usuarioTerm && scoped.length === 0) {
+          this.errorMessage = 'No se encontraron pedidos para ese nombre.';
+        }
+        this.lastServerUsuarioFilterApplied = usingServerUsuarioFilter;
+        this.updateServerFilterSnapshot();
         this.currentPage = 1;
         this.applyFilters();
         this.loading = false;
@@ -82,6 +103,7 @@ export class PedidoListComponent implements OnInit {
         this.errorMessage = 'No fue posible cargar los pedidos.';
         console.error(err);
         this.loading = false;
+        this.lastServerUsuarioFilterApplied = usingServerUsuarioFilter;
       }
     });
   }
@@ -90,10 +112,14 @@ export class PedidoListComponent implements OnInit {
     const usuarioTerm = this.filters.usuario.trim().toLowerCase();
     const estadoFiltro = this.filters.estado;
     const fechaFiltro = this.filters.fecha;
+    const skipUsuarioMatch =
+      this.lastServerUsuarioFilterApplied &&
+      usuarioTerm.length > 0 &&
+      usuarioTerm === this.serverFilterSnapshot.usuario.toLowerCase();
 
     this.filteredPedidos = this.allPedidos.filter(pedido => {
       const usuarioNombre = (pedido.usuario ? `${pedido.usuario.nombre ?? ''} ${pedido.usuario.apellido ?? ''}`.trim() : '') || (pedido.id_usuario ?? '');
-      const matchesUsuario = !usuarioTerm || usuarioNombre.toLowerCase().includes(usuarioTerm);
+      const matchesUsuario = skipUsuarioMatch || !usuarioTerm || usuarioNombre.toLowerCase().includes(usuarioTerm);
       const matchesEstado = !estadoFiltro || pedido.estado === estadoFiltro;
       const matchesFecha = !fechaFiltro || (pedido.fecha_pedido ?? '').startsWith(fechaFiltro);
       return matchesUsuario && matchesEstado && matchesFecha;
@@ -109,12 +135,16 @@ export class PedidoListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
     this.filters = { usuario: '', estado: '', fecha: '' };
-    this.onFilterChange();
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -196,7 +226,7 @@ export class PedidoListComponent implements OnInit {
         fecha_pedido: fechaValor || undefined,
         id_usuario_edita: this.currentUserId ?? null
       };
-      this.http.put<Pedido>(`${this.apiUrl}/pedidos/${this.editingId}/`, payload).subscribe({
+      this.pedidoService.update(this.editingId, payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -218,7 +248,7 @@ export class PedidoListComponent implements OnInit {
         fecha_pedido: fechaValor || undefined,
         id_usuario_crea: this.currentUserId ?? null
       };
-      this.http.post<Pedido>(`${this.apiUrl}/pedidos/`, payload).subscribe({
+      this.pedidoService.create(payload).subscribe({
         next: () => {
           this.loadData();
           this.closeModal();
@@ -238,7 +268,7 @@ export class PedidoListComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.http.delete(`${this.apiUrl}/pedidos/${pedido.id}/`).subscribe({
+    this.pedidoService.delete(pedido.id).subscribe({
       next: () => {
         this.loadData();
         if (this.editingId === pedido.id) {
@@ -252,6 +282,21 @@ export class PedidoListComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  private enforceUserScope(pedidos: Pedido[]): Pedido[] {
+    if (this.isAdmin || !this.currentUserId) {
+      return pedidos;
+    }
+    return pedidos.filter(pedido => pedido.id_usuario === this.currentUserId || pedido.usuario?.id === this.currentUserId);
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return this.filters.usuario.trim() !== this.serverFilterSnapshot.usuario;
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = { usuario: this.filters.usuario.trim() };
   }
 
   getEstadoClase(estado: PedidoEstado): string {

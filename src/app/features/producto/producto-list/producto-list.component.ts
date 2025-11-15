@@ -2,8 +2,11 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
+import { CategoriaService } from '../../../core/services/categoria.service';
+import { ProductoService } from '../../../core/services/producto.service';
 import { Categoria } from '../../../shared/models/categoria.model';
 import { Producto, ProductoCreate, ProductoUpdate } from '../../../shared/models/producto.model';
 import { environment } from '../../../../environments/environment';
@@ -20,12 +23,15 @@ export class ProductoListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly apiUrl = environment.apiUrl;
   private readonly authService = inject(AuthService);
+  private readonly productoService = inject(ProductoService);
+  private readonly categoriaService = inject(CategoriaService);
 
   productos: Producto[] = [];
   private allProductos: Producto[] = [];
   private filteredProductos: Producto[] = [];
   categorias: Categoria[] = [];
   private categoriaNombreMap = new Map<string, string>();
+  private serverFilterSnapshot = { nombre: '', categoria: '' };
 
   loading = false;
   saving = false;
@@ -72,23 +78,29 @@ export class ProductoListComponent implements OnInit {
   loadData(): void {
     this.loading = true;
     this.errorMessage = '';
-    const productosEndpoint = this.isAdmin || !this.currentUserId
-      ? `${this.apiUrl}/productos/`
-      : `${this.apiUrl}/productos/usuario/${this.currentUserId}/`;
+    const productos$ = this.buildProductosRequest();
+    const categorias$ = this.categoriaService.list().pipe(
+      catchError(err => {
+        console.warn('No fue posible cargar las categorías para el filtro de productos.', err);
+        return of(this.categorias);
+      })
+    );
 
-    forkJoin({
-      productos: this.http.get<Producto[]>(productosEndpoint),
-      categorias: this.http.get<Categoria[]>(`${this.apiUrl}/categorias/`)
-    }).subscribe({
+    forkJoin({ productos: productos$, categorias: categorias$ }).subscribe({
       next: ({ productos, categorias }) => {
         this.categorias = categorias ?? [];
         this.categoriaNombreMap = new Map(
           this.categorias.map(categoria => [categoria.id, categoria.nombre])
         );
-        this.allProductos = productos ?? [];
+        const scopedProductos = this.enforceUserScope(productos ?? []);
+        this.allProductos = scopedProductos;
         this.currentPage = 1;
+        if ((this.filters.nombre.trim() || this.filters.categoria.trim()) && scopedProductos.length === 0) {
+          this.errorMessage = 'No se encontraron productos con los filtros aplicados.';
+        }
         this.applyFilters();
         this.loading = false;
+        this.updateServerFilterSnapshot();
       },
       error: err => {
         this.errorMessage = 'No fue posible cargar los productos.';
@@ -129,12 +141,16 @@ export class ProductoListComponent implements OnInit {
 
   onFilterChange(): void {
     this.currentPage = 1;
-    this.applyFilters();
+    if (this.shouldRefetchFromServer()) {
+      this.loadData();
+    } else {
+      this.applyFilters();
+    }
   }
 
   clearFilters(): void {
     this.filters = { nombre: '', categoria: '', activo: '', precioMin: '', precioMax: '' };
-    this.onFilterChange();
+    this.loadData();
   }
 
   goToPage(page: number): void {
@@ -283,6 +299,56 @@ export class ProductoListComponent implements OnInit {
         this.saving = false;
       }
     });
+  }
+
+  private buildProductosRequest(): Observable<Producto[]> {
+    const nombre = this.filters.nombre.trim();
+    const categoriaId = this.filters.categoria.trim();
+    if (nombre && categoriaId) {
+      return forkJoin({
+        porNombre: this.productoService.searchByNombre(nombre),
+        porCategoria: this.productoService.getByCategoria(categoriaId)
+      }).pipe(
+        map(({ porNombre, porCategoria }) => {
+          const categoriaIds = new Set((porCategoria ?? []).map(prod => prod.id));
+          return (porNombre ?? []).filter(prod => categoriaIds.has(prod.id));
+        })
+      );
+    }
+    if (nombre) {
+      return this.productoService.searchByNombre(nombre);
+    }
+    if (categoriaId) {
+      return this.productoService.getByCategoria(categoriaId);
+    }
+    if (!this.isAdmin && this.currentUserId) {
+      return this.productoService.listByUsuario(this.currentUserId);
+    }
+    return this.productoService.list();
+  }
+
+  private enforceUserScope(productos: Producto[]): Producto[] {
+    if (this.isAdmin || !this.currentUserId) {
+      return productos ?? [];
+    }
+    return (productos ?? []).filter(producto => {
+      const ownerId = (producto.usuario_id as string) ?? (producto as any).id_usuario ?? null;
+      return ownerId === this.currentUserId;
+    });
+  }
+
+  private shouldRefetchFromServer(): boolean {
+    return (
+      this.filters.nombre.trim() !== this.serverFilterSnapshot.nombre ||
+      this.filters.categoria.trim() !== this.serverFilterSnapshot.categoria
+    );
+  }
+
+  private updateServerFilterSnapshot(): void {
+    this.serverFilterSnapshot = {
+      nombre: this.filters.nombre.trim(),
+      categoria: this.filters.categoria.trim()
+    };
   }
 
   getCategoriaNombre(producto: Producto): string {

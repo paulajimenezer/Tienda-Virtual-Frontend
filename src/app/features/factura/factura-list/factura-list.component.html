@@ -15,6 +15,10 @@
             <span>Número</span>
             <input [(ngModel)]="filters.numero" (input)="onFilterChange()" placeholder="Buscar por número" />
           </label>
+          <label *ngIf="isAdmin">
+            <span>Usuario (ID)</span>
+            <input [(ngModel)]="filters.usuario" (input)="onFilterChange()" placeholder="Ej. 123e4567-e89b-12d3-a456-426614174000" />
+          </label>
           <label>
             <span>Pedido</span>
             <input [(ngModel)]="filters.pedido" (input)="onFilterChange()" placeholder="Filtrar por pedido" />

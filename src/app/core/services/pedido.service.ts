@@ -26,6 +26,15 @@ export class PedidoService {
 		return this.http.get<Pedido>(`${this.apiUrl}/${id}`);
 	}
 
+	listByUsuario(usuarioId: string): Observable<Pedido[]> {
+		return this.http.get<Pedido[]>(`${this.apiUrl}/usuario/${usuarioId}`);
+	}
+
+	searchByNombre(nombre: string): Observable<Pedido[]> {
+		const encoded = encodeURIComponent(nombre.trim());
+		return this.http.get<Pedido[]>(`${this.apiUrl}/buscar/${encoded}`);
+	}
+
 	create(payload: PedidoCreate): Observable<Pedido> {
 		return this.http.post<Pedido>(this.apiUrl, payload);
 	}
